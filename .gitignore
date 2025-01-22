@@ -1,0 +1,8 @@
+data/
+run/
+log/
+__pycache__
+.venv
+.python-version
+uv.lock
+docker-compose.yaml

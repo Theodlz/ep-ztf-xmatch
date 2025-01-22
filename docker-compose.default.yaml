@@ -1,0 +1,13 @@
+services:
+  ep-ztf-xmatch:
+    build: .
+    image: ep-ztf-xmatch:latest
+    container_name: ep-ztf-xmatch
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "4000:4000"
+    environment:
+      - KOWALSKI_TOKEN=admin
+      - API_USERNAME=admin
+      - API_PASSWORD=admin
