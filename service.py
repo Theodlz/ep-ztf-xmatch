@@ -1,17 +1,9 @@
-import json
 import os
 import time
 from astropy.time import Time
 
-import pandas as pd
 from penquins import Kowalski
 from db import is_db_initialized, get_db_connection, fetch_events, update_event_status, insert_xmatches, remove_xmatches_by_event_id
-
-FID_TO_BAND = {
-    '1': 'g',
-    '2': 'r',
-    '3': 'i',
-}
 
 # DELTA_T = 0.5 # days
 DELTA_T = (1 / (60 * 24)) * 20  # 20 minutes in days (JD)
@@ -19,11 +11,6 @@ RADIUS_MULTIPLIER = 1.0
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__)) + '/data'
-    
-def fid_to_band(fid):
-    if pd.isna(fid):
-        return fid
-    return FID_TO_BAND.get(str(int(fid)), pd.NA)
 
 def cone_searches(events: list, k: Kowalski):
     queries = []
