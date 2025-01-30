@@ -1,15 +1,22 @@
 import json
 import os
 import time
+from astropy.time import Time
 
 import pandas as pd
 from penquins import Kowalski
+from db import is_db_initialized, get_db_connection, fetch_events, update_event_status, insert_xmatches, remove_xmatches_by_event_id
 
 FID_TO_BAND = {
     '1': 'g',
     '2': 'r',
     '3': 'i',
 }
+
+# DELTA_T = 0.5 # days
+DELTA_T = (1 / (60 * 24)) * 20  # 20 minutes in days (JD)
+RADIUS_MULTIPLIER = 1.0
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__)) + '/data'
     
@@ -24,20 +31,25 @@ def cone_searches(events: list, k: Kowalski):
     results = {}
 
     for event in events:
-        jd_start = event["jd"] - 0.5
-        jd_end = event["jd"] + 0.5
+        obs_start = event["obs_start"] # datetime string
+        # convert to jd
+        jd = Time(obs_start).jd # jd
+        
+        jd_start = jd - DELTA_T
+        jd_end = jd + DELTA_T
+        radius = event["pos_err"] * 60 * 60 # degrees to arcsec
         queries.append(
             {
                 "query_type": "cone_search",
                 "query": {
                     "object_coordinates": {
                         "radec": {
-                            str(event["id"]): [
+                            str(event["name"]): [
                                 event["ra"],
                                 event["dec"]
                             ]
                         },
-                        "cone_search_radius": event["radius"],
+                        "cone_search_radius": radius * RADIUS_MULTIPLIER,
                         "cone_search_unit": "arcsec",
                     },
                     "catalogs": {
@@ -50,7 +62,8 @@ def cone_searches(events: list, k: Kowalski):
                             },
                             "projection": {
                                 "_id": 0,
-                                "objectId": 1,
+                                "candid": 1,
+                                "object_id": "$objectId",
                                 "jd": "$candidate.jd",
                                 "ra": "$candidate.ra",
                                 "dec": "$candidate.dec",
@@ -69,7 +82,7 @@ def cone_searches(events: list, k: Kowalski):
     responses = k.query(queries=queries, use_batch_query=True, max_n_threads=4)
 
     results = {
-        int(event["id"]): [] for event in events
+        event["name"]: [] for event in events
     }
 
     for response in responses.get('default', []):
@@ -77,62 +90,51 @@ def cone_searches(events: list, k: Kowalski):
             print(f'Failed to get objects at positions: {response.get("message", "")}')
             continue
 
-        for id, matches in response.get('data', {}).get('ZTF_alerts', {}).items():
-            results[int(id)] = matches
+        for event_name, matches in response.get('data', {}).get('ZTF_alerts', {}).items():
+            results[event_name] = matches
 
     return results
 
-
-def update_status(request_id, status):
-    with open(f'{BASE_DIR}/requests.txt', 'r') as f:
-        lines = f.readlines()
-        for i, line in enumerate(lines):
-            _request_id, _status = line.strip().split(',')
-            if _request_id == request_id:
-                lines[i] = f'{request_id},{status}\n'
-
-    with open(f'{BASE_DIR}/requests.txt', 'w') as f:
-        f.writelines(lines)
-
-    print(f'Updated status of {request_id} to {status}')
-
 def service(k: Kowalski):
-    selected_request_id, filepath = None, None
-    with open(f'{BASE_DIR}/requests.txt', 'r') as f:
-        for line in f.readlines():
-            request_id, status = line.strip().split(',')
-            if status == 'pending':
-                selected_request_id = request_id
-                filepath = f'{BASE_DIR}/request_{request_id}.csv'
+    with get_db_connection() as conn:
+        c = conn.cursor()
+        events = fetch_events(None, c, status='pending')
 
-    if filepath is None:
-        return
+        # also query events that should be reprocessed:
+        # - the status is done (already queried)
+        # - the obs_start is less than 24 hours ago
+        # - the last_queried is more than 10 minutes ago
+        events_to_reprocess = fetch_events(None, c, can_reprocess=True)
+        if not events_to_reprocess:
+            events_to_reprocess = []
 
-    # if the file doesn't exist, mark the request as failed
-    if not os.path.exists(filepath):
-        print(f'File {filepath} does not exist')
-        update_status(selected_request_id, 'failed')
-        return
+        events += events_to_reprocess
 
-    # read the csv file
-    try:
-        events = pd.read_csv(filepath).to_dict(orient='records')
-    except Exception as e:
-        print(f'Failed to read: {e}')
-        update_status(selected_request_id, 'failed')
-        return
+        if not events:
+            return
 
-    update_status(selected_request_id, 'processing')
+        print(f'Found {len(events)} events to process (including {len(events_to_reprocess)} to reprocess)')
 
-    # process the request
-    results = cone_searches(events, k)
+        for event in events:
+            try:
+                if event['query_status'] == 'pending':
+                    update_event_status(event['id'], 'processing', c)
 
-    # write them to a json file with the same name as the request_id
-    with open(f'{BASE_DIR}/request_{selected_request_id}.json', 'w') as f:
-        f.write(json.dumps(results))
+                results = cone_searches([event], k)
+                print(f'Found {len(results[event["name"]])} matches for event {event["name"]}')
 
-    # mark the request as done
-    update_status(selected_request_id, 'done')
+                xmatches = results[event["name"]]
+                if len(xmatches) > 0:
+                    for xmatch in xmatches:
+                        xmatch['event_id'] = event['id']
+                    remove_xmatches_by_event_id(event['id'], c)
+                    insert_xmatches(xmatches, c)
+
+                update_event_status(event['id'], 'done', c)
+            except Exception as e:
+                print(f'Failed to process event {event["name"]}: {e}')
+                update_event_status(event['id'], f'failed: {str(e)}', c)
+        conn.commit()
 
 if __name__ == "__main__":
     protocol = 'https'
@@ -149,13 +151,12 @@ if __name__ == "__main__":
         timeout=timeout,
     )
 
-    if not os.path.exists(f'{BASE_DIR}/requests.txt'):
-        os.makedirs(BASE_DIR, exist_ok=True)
-        with open(f'{BASE_DIR}/requests.txt', 'w') as f:
-            pass
+    while not is_db_initialized():
+        print('Waiting for database to be initialized...')
+        time.sleep(15)
 
     while True:
         service(k)
-        time.sleep(1)
+        time.sleep(5)
         print('Service loop')
 

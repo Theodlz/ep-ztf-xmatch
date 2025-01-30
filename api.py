@@ -1,23 +1,37 @@
-import io
 import json
 import os
-import uuid
+import re
+import time
+import traceback
 from functools import wraps
 
-import pandas as pd
 from flask import Flask, request
+
+from db import is_db_initialized, get_db_connection, ALLOWED_EVENT_COLUMNS, insert_events, fetch_event, fetch_events, fetch_xmatches
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__)) + '/data'
 
-username = os.getenv('API_USERNAME', 'admin')
-password = os.getenv('API_PASSWORD', 'admin')
+# only allow alphanumeric characters and underscores in the username and password
+username_regex = re.compile(r'^[a-zA-Z0-9_]+$')
 
 def auth():
     def _auth(f):
         @wraps(f)
         def __auth(*args, **kwargs):
-            if not request.authorization or request.authorization.username != username or request.authorization.password != password:
+            if not request.authorization:
                 return 'Unauthorized', 401
+            username, password = request.authorization.username, request.authorization.password
+            if (
+                not username_regex.match(username)
+                or not username_regex.match(password)
+            ):
+                return 'Unauthorized', 401
+            with get_db_connection() as conn:
+                c = conn.cursor()
+                c.execute('SELECT * FROM users WHERE username = ? AND password = ?', (username, password))
+                if c.fetchone() is None:
+                    return 'Unauthorized', 401
+
             result = f(*args, **kwargs)
             return result
         return __auth
@@ -30,76 +44,108 @@ def make_app():
     def ping():
         return 'pong'
 
-    @app.route('/ep_xmatch', methods=['POST'])
-    @auth()
-    def ep_xmatch():
+    def event_post(event_name=None):
         data = request.data
 
         events = None
         try:
-            json_data = json.loads(data)
-            events = pd.json_normalize(json_data)
+            events = json.loads(data)
         except Exception as e:
-            pass
-        if events is None:
-            try:
-                events = pd.read_csv(io.BytesIO(data))
-            except Exception as e:
-                pass
-        if events is None:
             return {
                 'message': 'Failed to read data',
             }, 400
+
+        # check that they each have the allowed columns we need
+        for event in events:
+            if not all([col in event for col in ALLOWED_EVENT_COLUMNS]):
+                return {
+                    'message': 'One or more events are missing required columns',
+                }, 400
         
-        request_id = str(uuid.uuid4())
-        events.to_csv(f'{BASE_DIR}/request_{request_id}.csv', index=False)
-
-        if not os.path.exists(f'{BASE_DIR}/requests.txt'):
-            with open(f'{BASE_DIR}/requests.txt', 'w') as f:
-                pass
-
-        with open(f'{BASE_DIR}/requests.txt', 'a') as f:
-            f.write(f'{request_id},pending\n')
-
+        with get_db_connection() as conn:
+            c = conn.cursor()
+            try:
+                insert_events(events, c)
+                conn.commit()
+            except Exception as e:
+                traceback.print_exc()
+                return {
+                    'message': f'Failed to insert events: {e}',
+                }, 400
+            
         return {
-            'message': 'Request received',
-            'data': {'id': request_id},
+            'message': 'Events inserted successfully',
         }
     
-    @app.route('/ep_xmatch/<request_id>', methods=['GET'])
-    @auth()
-    def ep_xmatch_status(request_id):
-        with open(f'{BASE_DIR}/requests.txt', 'r') as f:
-            lines = f.readlines()
+    def event_get(event_name=None):
+        with get_db_connection() as conn:
+            c = conn.cursor()
+            if event_name is None:
+                events = fetch_events(None, c)
+                return {
+                    'message': 'Events found',
+                    'data': {
+                        'events': events,
+                    }
+                }
+
+            event = fetch_event(event_name, c)
         
-        for line in lines:
-            req_id, status = line.strip().split(',')
-            if req_id == request_id:
-                break
-        else:
-            return {
-                'message': 'Request not found'
-            }, 404
+            if event is None:
+                return {
+                    'message': 'Event not found',
+                }, 404
+            
+            # if the status isn't done, return the status
+            if event['query_status'] != 'done':
+                return {
+                    'message': f'Event is still being processed: {event["query_status"]}',
+                }, 202
+            else:
+                results = fetch_xmatches([event['id']], c)
+                event['xmatches'] = results
         
-        if status in ['pending', 'processing']:
             return {
-                'message': f'Request {status}'
-            }, 200
-        elif status == 'done':
-            with open(f'{BASE_DIR}/request_{request_id}.json', 'r') as f:
-                results = json.load(f)
-            return {
-                'message': 'Request done',
-                'data': results,
+                'message': 'Event found',
+                'data': {
+                    'event': event,
+                }
             }
+        
+    # the route above doesn't work, as the event_name should be only for the GET method
+    # i.e. it needs to be optional for the POST method
+    @app.route('/events/<event_name>', methods=['GET'])
+    @app.route('/events', methods=['GET', 'POST'])
+    @auth()
+    def event(event_name=None):
+        print(request.method)
+        if request.method == 'POST':
+            return event_post(event_name)
         else:
-            return {
-                'message': 'Request failed'
-            }, 400
+            return event_get(event_name)
+        
+    @app.route('/xmatches', methods=['GET'])
+    @auth()
+    def xmatches():
+        with get_db_connection() as conn:
+            c = conn.cursor()
+            # we return all the xmatches
+            xmatches = c.execute('SELECT * FROM xmatches').fetchall()
+        return {
+            'message': 'Xmatches found',
+            'data': {
+                'xmatches': xmatches,
+            }
+        }
 
     return app
 
 if __name__ == "__main__":
+
+    while not is_db_initialized():
+        print('Waiting for database to be initialized...')
+        time.sleep(15)
+
     app = make_app()
 
     app.debug = True
