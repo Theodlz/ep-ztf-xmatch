@@ -1,13 +1,15 @@
 import os
 import time
 from astropy.time import Time
+import traceback
 
 from penquins import Kowalski
 from db import is_db_initialized, get_db_connection, fetch_events, update_event_status, insert_xmatches, remove_xmatches_by_event_id
 
-# DELTA_T = (1 / (60 * 24)) * 20  # 20 minutes in days (JD)
-DELTA_T = (1 / (60 * 24)) * 24 * 60 * 50  # 24 hours in days (JD)
-RADIUS_MULTIPLIER = 1.0
+DELTA_T_DEFAULT = (1 / (60 * 24)) * 20  # 20 minutes in days (JD)
+RADIUS_MULTIPLIER_DEFAULT = 1.0
+DELTA_T = float(os.getenv('DELTA_T', DELTA_T_DEFAULT))
+RADIUS_MULTIPLIER = float(os.getenv('RADIUS_MULTIPLIER', RADIUS_MULTIPLIER_DEFAULT))
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__)) + '/data'
@@ -42,10 +44,50 @@ def cone_searches(events: list, k: Kowalski):
                     "catalogs": {
                         "ZTF_alerts": {
                             "filter": {
-                                "candidate.jd": {
+                                "candidate.jd": { # only consider alerts a the time window of the event
                                     "$gte": jd_start,
                                     "$lte": jd_end,
                                 },
+                                "candidate.drb": {
+                                    "$gt": 0.5 # remove bogus detections
+                                },
+                                # "candidate.jdstarthist": { # remove old objects
+                                #     "$gte": jd_start - 1,
+                                # },
+                                # "$and": [
+                                #     { # remove known stellar sources
+                                #         "$or": [
+                                #             {"candidate.sgscore1": {"$lt": 0.7}},
+                                #             {"candidate.distpsnr1": {"$gt": 10}},
+                                #             {"candidate.distpsnr2": {"$lt": 0}},
+                                #             {"candidate.distpsnr2": {"$eq": None}},
+                                #         ]
+                                #     },
+                                #     { # remove known solar system objects
+                                #         "$or": [
+                                #             {
+                                #             "candidate.ssdistnr": {
+                                #                 "$lt": 0
+                                #             }
+                                #             },
+                                #             {
+                                #             "candidate.ssdistnr": {
+                                #                 "$gte": 12
+                                #             }
+                                #             },
+                                #             {
+                                #             "candidate.ssmagnr": {
+                                #                 "$lte": -20
+                                #             }
+                                #             },
+                                #             {
+                                #             "candidate.ssmagnr": {
+                                #                 "$gte": 20
+                                #             }
+                                #             }
+                                #         ]
+                                #     }
+                                # ]
                             },
                             "projection": {
                                 "_id": 0,
@@ -119,6 +161,7 @@ def service(k: Kowalski):
 
                 update_event_status(event['id'], 'done', c)
             except Exception as e:
+                traceback.print_exc()
                 print(f'Failed to process event {event["name"]}: {e}')
                 update_event_status(event['id'], f'failed: {str(e)}', c)
         conn.commit()

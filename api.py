@@ -14,6 +14,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__)) + '/data'
 
 # only allow alphanumeric characters and underscores in the username and password
 username_regex = re.compile(r'^[a-zA-Z0-9_]+$')
+email_regex = re.compile(r'^[a-zA-Z0-9_]+@[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$')
 
 def auth():
     def _auth(f):
@@ -29,9 +30,11 @@ def auth():
                 return 'Unauthorized', 401
             with get_db_connection() as conn:
                 c = conn.cursor()
-                c.execute('SELECT * FROM users WHERE username = ? AND password = ?', (username, password))
-                if c.fetchone() is None:
+                existing_user = c.execute('SELECT * FROM users WHERE username = ? AND password = ?', (username, password)).fetchone()
+                if existing_user is None:
                     return 'Unauthorized', 401
+                
+                request.user = existing_user
 
             result = f(*args, **kwargs)
             return result
@@ -138,6 +141,86 @@ def make_app():
             }
         }
     
+    @app.route('/api/users', methods=['GET', 'POST'])
+    @auth()
+    def users():
+        if request.user.get('type') != 'admin':
+            return {
+                'message': 'Unauthorized, must be an admin user',
+            }, 401
+        if request.method == 'POST':
+            data = request.data
+            user = None
+            try:
+                user = json.loads(data)
+            except Exception as e:
+                return {
+                    'message': 'Failed to read data',
+                }, 400
+            
+            missing_columns = [col for col in ['username', 'password', 'email', 'type'] if col not in user]
+            if missing_columns:
+                return {
+                    'message': f'Missing required columns: {missing_columns}',
+                }, 400
+            
+            if (
+                not username_regex.match(user['username'])
+                or not username_regex.match(user['password'])
+            ):
+                return {
+                    'message': 'Invalid username or password',
+                }, 400
+            
+            if email_regex.match(user['email']) is None:
+                return {
+                    'message': 'Invalid email',
+                }, 400
+            
+            if user.get('type') not in ['normal', 'admin']:
+                return {
+                    'message': 'Invalid user type',
+                }, 400
+            
+            
+            with get_db_connection() as conn:
+                c = conn.cursor()
+                existing_user = c.execute('SELECT * FROM users WHERE username = ?', (user['username'],)).fetchone()
+                if existing_user is not None:
+                    return {
+                        'message': 'User already exists',
+                    }, 400
+                
+                try:
+                    c.execute('''
+                        INSERT INTO users (username, password, email, type)
+                        VALUES (?, ?, ?, ?)
+                    ''', (user['username'], user['password'], user['email'], user['type']))
+                    conn.commit()
+                except Exception as e:
+                    return {
+                        'message': f'Failed to insert user: {e}',
+                    }, 400
+                
+            return {
+                'message': 'User inserted successfully',
+            }
+        else:
+            with get_db_connection() as conn:
+                c = conn.cursor()
+                users = c.execute('SELECT * FROM users').fetchall()
+
+            # remove the passwords
+            for user in users:
+                del user['password']
+            return {
+                'message': 'Users found',
+                'data': {
+                    'users': users,
+                }
+            }
+            
+    
     # we want an auth frontend decorator, so that if you are not authenticated, you are redirected to the login page
     def auth_frontend():
         def _auth_frontend(f):
@@ -147,9 +230,6 @@ def make_app():
                 username, password = None, None
                 if 'Authorization' in request.cookies:
                     username, password = request.cookies['Authorization'].split(':')
-                if not username or not password:
-                    if request.authorization:
-                        username, password = request.authorization.username, request.authorization.password
 
                 if not username or not password:
                     return render_template('login.html', error='Unauthorized, please login')
@@ -161,9 +241,12 @@ def make_app():
                     render_template('login.html', error='Invalid username or password')
                 with get_db_connection() as conn:
                     c = conn.cursor()
-                    c.execute('SELECT * FROM users WHERE username = ? AND password = ?', (username, password))
-                    if c.fetchone() is None:
+                    existing_user = c.execute('SELECT * FROM users WHERE username = ? AND password = ?', (username, password)).fetchone()
+                    if existing_user is None:
                         return render_template('login.html', error='Invalid username or password')
+                    
+                    request.user = existing_user
+                    
                 result = f(*args, **kwargs)
                 return result
             return __auth_frontend
@@ -231,8 +314,9 @@ def make_app():
             for xmatch in xmatches:
                 xmatch['delta_t'] = xmatch['jd'] - obs_start_jd
             event['xmatches'] = xmatches
+            template = 'event_admin.html' if request.user.get('type') == 'admin' else 'event.html'
             return render_template(
-                'event.html',
+                template,
                 event=event,
                 xmatches=xmatches,
             )
@@ -256,7 +340,7 @@ def make_app():
         
         # set a cookie for the Authorization
         response = app.make_response(redirect('/'))
-        response.set_cookie('Authorization', f'{username}:{password}')
+        response.set_cookie('Authorization', f'{username}:{password}', max_age=60*60*24) # 1 day
         return response
     
     @app.route('/logout', methods=['POST'])

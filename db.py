@@ -23,7 +23,6 @@ def db_init(username, password):
     c = conn.cursor()
 
     try:
-        # create the users table
         c.execute('''
             CREATE TABLE users (
                 id INTEGER PRIMARY KEY,
@@ -32,6 +31,7 @@ def db_init(username, password):
                 email TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                type TEXT DEFAULT 'normal' CHECK (type IN ('normal', 'admin')),
                 UNIQUE (username, email)
             )
         ''')
@@ -91,12 +91,12 @@ def db_init(username, password):
         print("xmatches table already exists.")
 
     # if there is no admin user yet, create one
-    existing_user = c.execute('SELECT * FROM users WHERE username = "admin"').fetchone()
+    existing_user = c.execute('SELECT * FROM users WHERE username = ? AND type = ?', (username, 'admin')).fetchone()
     if existing_user is None:
         c.execute('''
-            INSERT INTO users (username, password, email)
-            VALUES (?, ?, ?)
-        ''', (username, password, ''))
+            INSERT INTO users (username, password, email, type)
+            VALUES (?, ?, ?, ?)
+        ''', (username, password, '', 'admin'))
     else:
         print("Admin user already exists.")
 
