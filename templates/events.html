@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}{% endblock %}
+
+{% block head %}
+    {{ parent() }}
+    <style type="text/css">
+        .important { color: "#22222;" }
+    </style>
+{% endblock %}
+
+{% block content %}
+    {% block body %}
+    <div style="width: 100%; padding: 20px;">
+        <h1 style="text-align:center">EP Sources</h1>
+    <hr/>
+    <br />
+     <div style="text-align:right">
+        <input type="checkbox" id="matchesOnly" name="matchesOnly" {% if matchesOnly %}checked{% endif %}>
+        <label for="matchesOnly">Only show events with xmatches</label>
+    </div>
+        <table border="1" style='margin-left:auto;margin-right:auto'>
+            <tr>
+                <th style="text-align:center;padding:5px"> Name</th>
+                <th style="text-align:center;padding:5px"> RA</th>
+                <th style="text-align:center;padding:5px"> DEC</th>
+                <th style="text-align:center;padding:5px"> ERR</th>
+                <th style="text-align:center;padding:5px"> TIME</th>
+                <th style="text-align:center;padding:5px"> EXP_TIME</th>
+                <th style="text-align:center;padding:5px"> FLUX</th>
+                <th style="text-align:center;padding:5px"> SRC ID</th>
+                <th style="text-align:center;padding:5px"> SRC SIGNIFICANCE</th>
+                <th style="text-align:center;padding:5px"> BKG COUNTS</th>
+                <th style="text-align:center;padding:5px"> NET COUNTS</th>
+                <th style="text-align:center;padding:5px"> NET RATE</th>
+                <th style="text-align:center;padding:5px"> XMATCH Status</th>
+                <th style="text-align:center;padding:5px"> NB MATCHES</th>
+            </tr>
+
+            {% for event in events %}
+                <tr>
+                <td style="text-align:center;padding:5px"><a href="/events/{{event['name']}}">{{event['name']}}</a></td>
+                    <!-- <td style="text-align:center;padding:5px">{{event['ra']}}</td> -->
+                    <td style="text-align:center;padding:5px">{{event['ra']|round(4)}}</td>
+                    <td style="text-align:center;padding:5px">{{event['dec']|round(4)}}</td>
+                    <td style="text-align:center;padding:5px">{{event['pos_err']|round(4)}}</td>
+                    <td style="text-align:center;padding:5px">{{event['obs_start']}}</td>
+                    <td style="text-align:center;padding:5px">{{event['exp_time']|int}}</td>
+                    <td style="text-align:center;padding:5px">{{event['flux']}}</td>
+                    <td style="text-align:center;padding:5px">{{event['src_id']}}</td>
+                    <td style="text-align:center;padding:5px">{{event['src_significance']|round(2)}}</td>
+                    <td style="text-align:center;padding:5px">{{event['bkg_counts']|round(4)}}</td>
+                    <td style="text-align:center;padding:5px">{{event['net_counts']|round(4)}}</td>
+                    <td style="text-align:center;padding:5px">{{event['net_rate']|round(4)}}</td>
+                    <td style="text-align:center;padding:5px">{{event['query_status']}}</td>
+                    <td style="text-align:center;padding:5px">{{event['xmatches']|length}}</td>
+                </tr>
+            {% endfor %}
+      </table>
+            <div style="text-align:center; margin-top: 10px; display: flex; justify-content: right; gap: 20px;">
+                <form name="paginationForm" id="paginationForm" method="get" action="">
+                    <label for="pageNumber">Page:</label>
+                    <select name="pageNumber" id="pageNumber">
+                        {% for page in range(1, totalPages+1) %}
+                            <option value="{{page}}" {% if page == pageNumber %}selected{% endif %}>
+                                {{page}}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <label for="numPerPage">Rows per page:</label>
+                    <select name="numPerPage" id="numPerPage">
+                        <option value="1" {% if numPerPage == 1 %}selected{% endif %}>1</option>
+                        <option value="10" {% if numPerPage == 10 %}selected{% endif %}>10</option>
+                        <option value="100" {% if numPerPage == 100 %}selected{% endif %}>100</option>
+                        <option value="1000" {% if numPerPage == 1000 %}selected{% endif %}>1000</option>
+                    </select>
+                </form>
+                <span>{{(pageNumber-1)*numPerPage+1}}-{{[pageNumber*numPerPage, totalMatches] | min}} of {{totalMatches}}</span>
+                <div style="display: flex; gap: 14px;">
+                    {% if pageNumber > 1 %}
+                        <a href="/?pageNumber={{pageNumber-1}}&numPerPage={{numPerPage}}">&#60;</a>
+                    {% else %}
+                        <span>&#60;</span>
+                    {% endif %}
+                    {% if pageNumber < totalPages %}
+                        <a href="/?pageNumber={{pageNumber+1}}&numPerPage={{numPerPage}}">&#62;</a>
+                    {% else %}
+                        <span>&#62;</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <script>
+                document.getElementById('pageNumber').onchange = function() {
+                    console.log('pageNumber changed');
+                    //  if its different from the current page number, submit the form
+                    if (this.value != {{pageNumber}}) {
+                        document.getElementById('paginationForm').submit();
+                    }
+                };
+                document.getElementById('numPerPage').onchange = function() {
+                    console.log('numPerPage changed');
+                    if (this.value != {{numPerPage}}) {
+                        document.getElementById('paginationForm').submit();
+                    }
+                };
+                document.getElementById('matchesOnly').onchange = function() {
+                    console.log('matchesOnly changed');
+                    if (this.checked) {
+                        window.location.href = '/?pageNumber={{pageNumber}}&numPerPage={{numPerPage}}&matchesOnly=true';
+                    } else {
+                        window.location.href = '/?pageNumber={{pageNumber}}&numPerPage={{numPerPage}}';
+                    }
+                };
+            </script>
+        </div>
+            
+    {% endblock %}
+{% endblock %}
+

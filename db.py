@@ -198,12 +198,19 @@ def fetch_events(event_names: list, c: sqlite3.Cursor, **kwargs) -> list:
         parameters.append('done')
         parameters.append(datetime.utcnow() - timedelta(hours=24))
         parameters.append(datetime.utcnow() - timedelta(minutes=10))
+    if kwargs.get('matchesOnly') == True:
+        #  here we only return events if they have matches in the xmatches table
+        conditions.append(' id IN (SELECT event_id FROM xmatches where event_id = events.id GROUP BY event_id)')
     
-    if len(parameters) == 0:
-        c.execute('SELECT * FROM events')
-    else:
+    if len(conditions) > 0:
         query += ' WHERE' + ' AND'.join(conditions)
-        c.execute(query, tuple(parameters))
+
+    if kwargs.get('order_by') is not None:
+        query += f' ORDER BY {kwargs.get("order_by")}'
+    if kwargs.get('pageNumber') is not None and kwargs.get('numPerPage') is not None:
+        query += f' LIMIT {kwargs.get("numPerPage")} OFFSET {(kwargs.get("pageNumber") - 1) * kwargs.get("numPerPage")}'
+        
+    c.execute(query, tuple(parameters))
 
     return c.fetchall()
     
@@ -214,12 +221,17 @@ def fetch_event(event_name: str, c: sqlite3.Cursor) -> list:
     c.execute(query, (event_name,))
     return c.fetchone()
 
+def fetch_event_by_id(event_id: int, c: sqlite3.Cursor) -> list:
+    query = 'SELECT * FROM events WHERE id = ?'
+    c.execute(query, (event_id,))
+    return c.fetchone()
+
 def fetch_xmatches(event_ids: list, c: sqlite3.Cursor) -> list:
     event_ids = [str(event_id) for event_id in event_ids]
     if event_ids is None:
         c.execute('SELECT * FROM xmatches order by id')
     else:
-        c.execute(f'SELECT * FROM xmatches WHERE event_id IN ({",".join(event_ids)}) order by id')
+        c.execute(f'SELECT * FROM xmatches WHERE event_id IN ({",".join(event_ids)}) order by jd')
 
     return c.fetchall()
 

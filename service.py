@@ -5,8 +5,8 @@ from astropy.time import Time
 from penquins import Kowalski
 from db import is_db_initialized, get_db_connection, fetch_events, update_event_status, insert_xmatches, remove_xmatches_by_event_id
 
-# DELTA_T = 0.5 # days
-DELTA_T = (1 / (60 * 24)) * 20  # 20 minutes in days (JD)
+# DELTA_T = (1 / (60 * 24)) * 20  # 20 minutes in days (JD)
+DELTA_T = (1 / (60 * 24)) * 24 * 60 * 50  # 24 hours in days (JD)
 RADIUS_MULTIPLIER = 1.0
 
 

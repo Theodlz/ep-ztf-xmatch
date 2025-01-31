@@ -1,0 +1,20 @@
+<!-- this is a jinja2 template for the login page. It should save the username and password in the session and redirect to the / page. -->
+
+{% extends "base.html" %}
+
+{% block content %}
+    <div style="text-align:center; margin-top: 10px;">
+        <h1>Login</h1>
+        <form method="post" action="/login">
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" required>
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+            <input type="submit" value="Login">
+        </form>
+
+        {% if error %}
+            <p style="color:red">{{error}}</p>
+        {% endif %}
+    </div>
+{% endblock %}
