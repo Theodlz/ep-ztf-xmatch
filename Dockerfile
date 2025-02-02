@@ -17,10 +17,13 @@ RUN sh /uv-installer.sh && rm /uv-installer.sh && \
     uv venv env --python=python3.12
 
 COPY ["api.py", \
+        "db.py", \
         "service.py", \
         "pyproject.toml", \
         "supervisord.conf", \
         "/app/"]
+
+COPY templates /app/templates
 
 RUN source env/bin/activate && \
     uv sync && \
