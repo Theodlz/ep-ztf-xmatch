@@ -331,12 +331,12 @@ def make_app():
             not username_regex.match(username)
             or not username_regex.match(password)
         ):
-            return render_template('login.html')
+            return render_template('login.html', error='Invalid username or password')
         with get_db_connection() as conn:
             c = conn.cursor()
             c.execute('SELECT * FROM users WHERE username = ? AND password = ?', (username, password))
             if c.fetchone() is None:
-                return render_template('login.html')
+                return render_template('login.html', error='Invalid username or password')
         
         # set a cookie for the Authorization
         response = app.make_response(redirect('/'))
