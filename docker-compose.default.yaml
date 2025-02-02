@@ -11,3 +11,4 @@ services:
       - KOWALSKI_TOKEN=admin
       - API_USERNAME=admin
       - API_PASSWORD=admin
+      - DELTA_T_DEFAULT=1.0
