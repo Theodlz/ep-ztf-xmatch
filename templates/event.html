@@ -75,7 +75,11 @@
 
                 {% for xmatch in xmatches %}
                     <tr>
-                        <td style="text-align:center;padding:5px">{{xmatch['object_id']}}</td>
+                         {% if is_admin %}
+                            <td style="text-align:center;padding:5px"><a href="https://fritz.science/alerts/ztf/{{xmatch['object_id']}}">{{xmatch['object_id']}}</a></td>
+                        {% else %}
+                            <td style="text-align:center;padding:5px">{{xmatch['object_id']}}</td>
+                        {% endif %}
                         <td style="text-align:center;padding:5px">{{xmatch['candid']}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['ra']|round(4)}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['dec']|round(4)}}</td>

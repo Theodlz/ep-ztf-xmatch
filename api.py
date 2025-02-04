@@ -292,6 +292,8 @@ def make_app():
             totalMatches=total_events,
             totalPages=(total_events + numPerPage - 1) // numPerPage,
             matchesOnly=matchesOnly,
+            username=request.user.get('username'),
+            is_admin=request.user.get('type') == 'admin',
         )
             
     @app.route('/events/<event_name>', methods=['GET'])
@@ -317,11 +319,12 @@ def make_app():
             for xmatch in xmatches:
                 xmatch['delta_t'] = xmatch['jd'] - obs_start_jd
             event['xmatches'] = xmatches
-            template = 'event_admin.html' if request.user.get('type') == 'admin' else 'event.html'
             return render_template(
-                template,
+                'event.html',
                 event=event,
                 xmatches=xmatches,
+                username=request.user.get('username'),
+                is_admin=request.user.get('type') == 'admin',
             )
         
     @app.route('/login', methods=['POST'])
