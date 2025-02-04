@@ -5,6 +5,9 @@ import time
 import traceback
 from functools import wraps
 
+from gevent import monkey
+monkey.patch_all()
+
 from astropy.time import Time
 from flask import Flask, request, render_template, redirect
 
