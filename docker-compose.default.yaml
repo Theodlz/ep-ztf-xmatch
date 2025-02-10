@@ -12,3 +12,5 @@ services:
       - API_USERNAME=admin
       - API_PASSWORD=admin
       - DELTA_T_DEFAULT=1.0
+      - EP_EMAIL=<your-email>
+      - EP_PASSWORD=<your-password>
