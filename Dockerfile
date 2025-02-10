@@ -1,6 +1,5 @@
 FROM debian:bookworm-slim
 
-ENV VIRTUAL_ENV=/usr/local
 ENV PATH="/root/.local/bin/:$PATH"
 
 WORKDIR /app
@@ -14,7 +13,7 @@ RUN apt-get update && apt-get install -y curl wget && \
 ADD https://astral.sh/uv/install.sh /uv-installer.sh
 
 RUN sh /uv-installer.sh && rm /uv-installer.sh && \
-    uv venv env --python=python3.12
+    uv venv --python=python3.12
 
 COPY ["api.py", \
         "db.py", \
@@ -25,11 +24,11 @@ COPY ["api.py", \
 
 COPY templates /app/templates
 
-RUN source env/bin/activate && \
+RUN source .venv/bin/activate && \
     uv sync && \
     rm -rf $HOME/.cache/uv && \
     mkdir log && mkdir log/sv_child && mkdir run
 
 # run container
-CMD ["/bin/bash", "-c", "source env/bin/activate && uv run supervisord -c supervisord.conf"]
+CMD ["/bin/bash", "-c", "source .venv/bin/activate && uv run supervisord -c supervisord.conf"]
 
