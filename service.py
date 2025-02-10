@@ -2,17 +2,57 @@ import os
 import time
 from astropy.time import Time
 import traceback
+import requests
+import numpy as np
 
 from penquins import Kowalski
-from db import is_db_initialized, get_db_connection, fetch_events, update_event_status, insert_xmatches, remove_xmatches_by_event_id
+from db import is_db_initialized, get_db_connection, fetch_events, update_event_status, insert_xmatches, remove_xmatches_by_event_id, insert_events, ALLOWED_EVENT_COLUMNS
 
 DELTA_T_DEFAULT = (1 / (60 * 24)) * 20  # 20 minutes in days (JD)
 RADIUS_MULTIPLIER_DEFAULT = 1.0
 DELTA_T = float(os.getenv('DELTA_T', DELTA_T_DEFAULT))
 RADIUS_MULTIPLIER = float(os.getenv('RADIUS_MULTIPLIER', RADIUS_MULTIPLIER_DEFAULT))
 
+EP_BASE_URL = "https://ep.bao.ac.cn/ep"
+EP_TOKEN_URL = f"{EP_BASE_URL}/api/get_tokenp"
+EP_EVENTS_URL = f"{EP_BASE_URL}/data_center/api/unverified_candidates"
+
+EP_EMAIL = os.getenv('EP_EMAIL')
+EP_PASSWORD = os.getenv('EP_PASSWORD')
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__)) + '/data'
+
+def great_circle_distance(ra1_deg, dec1_deg, ra2_deg, dec2_deg):
+    """
+        Distance between two points on the sphere
+    :param ra1_deg:
+    :param dec1_deg:
+    :param ra2_deg:
+    :param dec2_deg:
+    :return: distance in degrees
+    """
+    # this is orders of magnitude faster than astropy.coordinates.Skycoord.separation
+    DEGRA = np.pi / 180.0
+    ra1, dec1, ra2, dec2 = (
+        ra1_deg * DEGRA,
+        dec1_deg * DEGRA,
+        ra2_deg * DEGRA,
+        dec2_deg * DEGRA,
+    )
+    delta_ra = np.abs(ra2 - ra1)
+    distance = np.arctan2(
+        np.sqrt(
+            (np.cos(dec2) * np.sin(delta_ra)) ** 2
+            + (
+                np.cos(dec1) * np.sin(dec2)
+                - np.sin(dec1) * np.cos(dec2) * np.cos(delta_ra)
+            )
+            ** 2
+        ),
+        np.sin(dec1) * np.sin(dec2) + np.cos(dec1) * np.cos(dec2) * np.cos(delta_ra),
+    )
+
+    return distance * 180.0 / np.pi
 
 def cone_searches(events: list, k: Kowalski):
     queries = []
@@ -48,46 +88,50 @@ def cone_searches(events: list, k: Kowalski):
                                     "$gte": jd_start,
                                     "$lte": jd_end,
                                 },
-                                "candidate.drb": {
-                                    "$gt": 0.5 # remove bogus detections
+                                "candidate.rb": {
+                                    "$gt": 0.3 # remove bogus detections (random forest)
                                 },
-                                # "candidate.jdstarthist": { # remove old objects
-                                #     "$gte": jd_start - 1,
-                                # },
-                                # "$and": [
-                                #     { # remove known stellar sources
-                                #         "$or": [
-                                #             {"candidate.sgscore1": {"$lt": 0.7}},
-                                #             {"candidate.distpsnr1": {"$gt": 10}},
-                                #             {"candidate.distpsnr2": {"$lt": 0}},
-                                #             {"candidate.distpsnr2": {"$eq": None}},
-                                #         ]
-                                #     },
-                                #     { # remove known solar system objects
-                                #         "$or": [
-                                #             {
-                                #             "candidate.ssdistnr": {
-                                #                 "$lt": 0
-                                #             }
-                                #             },
-                                #             {
-                                #             "candidate.ssdistnr": {
-                                #                 "$gte": 12
-                                #             }
-                                #             },
-                                #             {
-                                #             "candidate.ssmagnr": {
-                                #                 "$lte": -20
-                                #             }
-                                #             },
-                                #             {
-                                #             "candidate.ssmagnr": {
-                                #                 "$gte": 20
-                                #             }
-                                #             }
-                                #         ]
-                                #     }
-                                # ]
+                                "candidate.drb": {
+                                    "$gt": 0.5 # remove bogus detections (deep learning)
+                                },
+                                "candidate.jdstarthist": { # remove old objects
+                                    "$gte": jd_start - 1,
+                                },
+                                "candidate.isdiffpos": { "$in": ["t", "T", "true", "True", True, "1", 1] },
+                                "$and": [
+                                    { # remove known stellar sources
+                                        "$or": [
+                                            {"candidate.sgscore1": {"$lt": 0.7}},
+                                            {"candidate.distpsnr1": {"$gt": 10}},
+                                            {"candidate.distpsnr2": {"$lt": 0}},
+                                            {"candidate.distpsnr2": {"$eq": None}},
+                                        ]
+                                    },
+                                    { # remove known solar system objects
+                                        "$or": [
+                                            {
+                                            "candidate.ssdistnr": {
+                                                "$lt": 0
+                                            }
+                                            },
+                                            {
+                                            "candidate.ssdistnr": {
+                                                "$gte": 12
+                                            }
+                                            },
+                                            {
+                                            "candidate.ssmagnr": {
+                                                "$lte": -20
+                                            }
+                                            },
+                                            {
+                                            "candidate.ssmagnr": {
+                                                "$gte": 20
+                                            }
+                                            }
+                                        ]
+                                    }
+                                ]
                             },
                             "projection": {
                                 "_id": 0,
@@ -120,27 +164,93 @@ def cone_searches(events: list, k: Kowalski):
             continue
 
         for event_name, matches in response.get('data', {}).get('ZTF_alerts', {}).items():
+            # to each matches, add a delta_t field
+            # and the distance to the event position in arcsec
+            for match in matches:
+                match['delta_t'] = match['jd'] - jd
+                match['distance_arcmin'] = great_circle_distance(
+                    event['ra'], event['dec'], match['ra'], match['dec']
+                ) * 60
+                # and a distance_arcmin / pos_err ratio
+                match['distance_ratio'] = match['distance_arcmin'] / (event['pos_err'] * 60)
+
             results[event_name] = matches
 
     return results
 
-def service(k: Kowalski):
+def get_ep_token():
+    if EP_EMAIL is None or EP_PASSWORD is None:
+        raise ValueError('EP_USERNAME or EP_PASSWORD not set')
+    response = requests.post(
+        url=EP_TOKEN_URL,
+        json={"email": EP_EMAIL, "password": EP_PASSWORD},
+        headers={"Content-Type": "application/json"}
+    )
+    response.raise_for_status()  
+    token = response.json().get("token") 
+    return token
+
+def get_new_events():
+    token = get_ep_token()
+
+    response = requests.get(
+                url=EP_EVENTS_URL,
+                headers={"tdic-token": token},  
+                params={"token": token}
+            )
+    response.raise_for_status()
+    try:
+        events = response.json()
+    except ValueError:
+        events = []
+    return events
+
+def service(k: Kowalski, last_event_fetch: float) -> float:
     with get_db_connection() as conn:
         c = conn.cursor()
-        events = fetch_events(None, c, status='pending')
+
+        # GET NEW EP EVENTS
+        if (
+            last_event_fetch is None or
+            time.time() - last_event_fetch > 5 * 60
+        ):
+            print('Fetching new events...')
+            try:
+                new_events = get_new_events()
+                last_event_fetch = time.time()
+            except Exception as e:
+                traceback.print_exc()
+                print(f'Failed to get new events: {e}')
+                new_events = []
+            # check that they each have the allowed columns we need
+            for event in new_events:
+                if not all([col in event for col in ALLOWED_EVENT_COLUMNS]):
+                    raise ValueError('Event does not have all required columns')
+                    
+            if len(new_events) > 0:
+                print(f'Inserting {len(new_events)} events (including duplicates)')
+                try:
+                    insert_events(new_events, c)
+                    conn.commit()
+                except Exception as e:
+                    traceback.print_exc()
+                    print(f'Failed to insert events: {e}')
+            
+        # QUERY SOURCES FOR NEW EVENTS
+        events, _ = fetch_events(None, c, status='pending')
 
         # also query events that should be reprocessed:
         # - the status is done (already queried)
         # - the obs_start is less than 24 hours ago
         # - the last_queried is more than 10 minutes ago
-        events_to_reprocess = fetch_events(None, c, can_reprocess=True)
+        events_to_reprocess, _ = fetch_events(None, c, can_reprocess=True)
         if not events_to_reprocess:
             events_to_reprocess = []
 
         events += events_to_reprocess
 
         if not events:
-            return
+            return last_event_fetch
 
         print(f'Found {len(events)} events to process (including {len(events_to_reprocess)} to reprocess)')
 
@@ -166,6 +276,8 @@ def service(k: Kowalski):
                 update_event_status(event['id'], f'failed: {str(e)}', c)
         conn.commit()
 
+    return last_event_fetch
+
 if __name__ == "__main__":
     protocol = 'https'
     host = 'kowalski.caltech.edu'
@@ -185,8 +297,14 @@ if __name__ == "__main__":
         print('Waiting for database to be initialized...')
         time.sleep(15)
 
+    last_event_fetch = None
+
     while True:
-        service(k)
+        try:
+            last_event_fetch = service(k, last_event_fetch)
+        except Exception as e:
+            traceback.print_exc()
+            print(f'Failed to run service: {e}')
         time.sleep(5)
         print('Service loop')
 

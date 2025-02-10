@@ -1,5 +1,6 @@
 import sqlite3
 from datetime import datetime, timedelta
+from typing import Tuple
 
 def dict_factory(cursor, row):
     d = {}
@@ -81,6 +82,9 @@ def db_init(username, password):
                 magpsf REAL,
                 sigmapsf REAL,
                 drb REAL,
+                delta_t REAL,
+                distance_arcmin REAL,
+                distance_ratio REAL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 flags TEXT,
@@ -132,18 +136,6 @@ ALLOWED_EVENT_COLUMNS = [
     'version'
 ]
 
-ALLOWED_RESULT_COLUMNS = [
-    'candid',
-    'object_id',
-    'jd',
-    'ra',
-    'dec',
-    'fid',
-    'magpsf',
-    'sigmapsf',
-    'drb'
-]
-
 def insert_events(events: list, c: sqlite3.Cursor, duplicate="skip") -> None:
     for event in events:
         # the obs_start is a string in the format 'YYYY-MM-DDTHH:MM:SSZ'
@@ -177,8 +169,9 @@ def update_event_status(event_id: int, status: str, c: sqlite3.Cursor) -> None:
 def remove_xmatches_by_event_id(event_id: int, c: sqlite3.Cursor) -> None:
     c.execute(f"DELETE FROM xmatches WHERE event_id=?", (event_id,))
 
-def fetch_events(event_names: list, c: sqlite3.Cursor, **kwargs) -> list:
+def fetch_events(event_names: list, c: sqlite3.Cursor, **kwargs) -> Tuple[list, int]:
     query = 'SELECT * FROM events'
+    count_query = 'SELECT COUNT(*) FROM events'
     conditions = []
     parameters = []
     if event_names is not None:
@@ -204,15 +197,18 @@ def fetch_events(event_names: list, c: sqlite3.Cursor, **kwargs) -> list:
     
     if len(conditions) > 0:
         query += ' WHERE' + ' AND'.join(conditions)
+        count_query += ' WHERE' + ' AND'.join(conditions)
 
     if kwargs.get('order_by') is not None:
         query += f' ORDER BY {kwargs.get("order_by")}'
+    
     if kwargs.get('pageNumber') is not None and kwargs.get('numPerPage') is not None:
         query += f' LIMIT {kwargs.get("numPerPage")} OFFSET {(kwargs.get("pageNumber") - 1) * kwargs.get("numPerPage")}'
-        
-    c.execute(query, tuple(parameters))
 
-    return c.fetchall()
+    count = c.execute(count_query, tuple(parameters)).fetchone()['COUNT(*)']
+    events = c.execute(query, tuple(parameters)).fetchall()
+
+    return events, count
     
 
 

@@ -11,7 +11,7 @@ monkey.patch_all()
 from astropy.time import Time
 from flask import Flask, request, render_template, redirect
 
-from db import is_db_initialized, get_db_connection, ALLOWED_EVENT_COLUMNS, insert_events, fetch_event, fetch_event_by_id, fetch_events, fetch_xmatches
+from db import is_db_initialized, get_db_connection, ALLOWED_EVENT_COLUMNS, insert_events, fetch_event, fetch_events, fetch_xmatches
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__)) + '/data'
 
@@ -88,11 +88,12 @@ def make_app():
         with get_db_connection() as conn:
             c = conn.cursor()
             if event_name is None:
-                events = fetch_events(None, c)
+                events, count = fetch_events(None, c)
                 return {
                     'message': 'Events found',
                     'data': {
                         'events': events,
+                        'totalMatches': count,
                     }
                 }
 
@@ -267,14 +268,14 @@ def make_app():
         try:
             pageNumber = int(pageNumber)
             numPerPage = int(numPerPage)
-            matchesOnly = bool(matchesOnly)
+            matchesOnly = bool(str(matchesOnly).lower() == 'true')
         except Exception as e:
             return {
                 'message': 'Invalid query parameters',
             }, 400
         with get_db_connection() as conn:
             c = conn.cursor()
-            events = fetch_events(None, c, pageNumber=pageNumber, numPerPage=numPerPage, order_by='obs_start DESC', matchesOnly=matchesOnly)
+            events, count = fetch_events(None, c, pageNumber=pageNumber, numPerPage=numPerPage, order_by='obs_start DESC', matchesOnly=matchesOnly)
             if events is None:
                 events = []
             for event in events:
@@ -283,14 +284,14 @@ def make_app():
 
             # get the total number of events
             c.execute('SELECT COUNT(*) FROM events')
-            total_events = c.fetchone().get('COUNT(*)')
+
         return render_template(
             'events.html',
             events=events,
             pageNumber=pageNumber,
             numPerPage=numPerPage,
-            totalMatches=total_events,
-            totalPages=(total_events + numPerPage - 1) // numPerPage,
+            totalMatches=count,
+            totalPages=(count + numPerPage - 1) // numPerPage,
             matchesOnly=matchesOnly,
             username=request.user.get('username'),
             is_admin=request.user.get('type') == 'admin',
