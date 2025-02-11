@@ -273,29 +273,39 @@ def make_app():
             return {
                 'message': 'Invalid query parameters',
             }, 400
+        
+        now = Time.now().jd
         with get_db_connection() as conn:
             c = conn.cursor()
-            events, count = fetch_events(None, c, pageNumber=pageNumber, numPerPage=numPerPage, order_by='obs_start DESC', matchesOnly=matchesOnly)
+            events, totalMatches = fetch_events(None, c, pageNumber=pageNumber, numPerPage=numPerPage, order_by='obs_start DESC', matchesOnly=matchesOnly)
             if events is None:
                 events = []
             for event in events:
-                results = fetch_xmatches([event['id']], c)
-                event['xmatches'] = results
+                count = c.execute('SELECT COUNT(*) FROM xmatches WHERE event_id = ?', (event['id'],)).fetchone()['COUNT(*)']
+                event['num_xmatches'] = count
+                dt = (now - Time(event['obs_start']).jd) * 24
+                if dt < 24:
+                    event['delta_t'] = f"<{int(dt + 0.5)}h"
+                else:
+                    event['delta_t'] = ">24h"
 
-            # get the total number of events
-            c.execute('SELECT COUNT(*) FROM events')
-
-        return render_template(
-            'events.html',
-            events=events,
-            pageNumber=pageNumber,
-            numPerPage=numPerPage,
-            totalMatches=count,
-            totalPages=(count + numPerPage - 1) // numPerPage,
-            matchesOnly=matchesOnly,
-            username=request.user.get('username'),
-            is_admin=request.user.get('type') == 'admin',
-        )
+        try:
+            template_rendered = render_template(
+                'events.html',
+                events=events,
+                pageNumber=pageNumber,
+                numPerPage=numPerPage,
+                totalMatches=totalMatches,
+                totalPages=(totalMatches + numPerPage - 1) // numPerPage,
+                matchesOnly=matchesOnly,
+                username=request.user.get('username'),
+                is_admin=request.user.get('type') == 'admin',
+            )
+            return template_rendered
+        except Exception as e:
+            return {
+                'message': f'Failed to render template: {e}',
+            }, 500
             
     @app.route('/events/<event_name>', methods=['GET'])
     @auth_frontend()

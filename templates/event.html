@@ -16,20 +16,21 @@
     <br />
     <table border="1" style='margin-left:auto;margin-right:auto'>
         <tr>
-            <th style="text-align:center;padding:5px"> Name</th>
-            <th style="text-align:center;padding:5px"> RA</th>
-            <th style="text-align:center;padding:5px"> DEC</th>
-            <th style="text-align:center;padding:5px"> ERR<sub>(arcmin)</sub></th>
-            <th style="text-align:center;padding:5px"> TIME</th>
-            <th style="text-align:center;padding:5px"> EXP_TIME</th>
-            <th style="text-align:center;padding:5px"> FLUX</th>
-            <th style="text-align:center;padding:5px"> SRC ID</th>
-            <th style="text-align:center;padding:5px"> SRC SIGNIFICANCE</th>
-            <th style="text-align:center;padding:5px"> BKG COUNTS</th>
-            <th style="text-align:center;padding:5px"> NET COUNTS</th>
-            <th style="text-align:center;padding:5px"> NET RATE</th>
-            <th style="text-align:center;padding:5px"> XMATCH Status</th>
-            <th style="text-align:center;padding:5px"> NB MATCHES</th>
+            <th style="text-align:center;padding:5px"> name</th>
+            <th style="text-align:center;padding:5px"> ra</th>
+            <th style="text-align:center;padding:5px"> dec</th>
+            <th style="text-align:center;padding:5px"> err<sub>(arcmin)</sub></th>
+            <th style="text-align:center;padding:5px"> time</th>
+            <th style="text-align:center;padding:5px"> δ<sub>t (now)</sub></th>
+            <th style="text-align:center;padding:5px"> exposure</th>
+            <th style="text-align:center;padding:5px"> flux</th>
+            <th style="text-align:center;padding:5px"> src ID</th>
+            <th style="text-align:center;padding:5px"> significance</th>
+            <th style="text-align:center;padding:5px"> bkg counts</th>
+            <th style="text-align:center;padding:5px"> net counts</th>
+            <th style="text-align:center;padding:5px"> net rate</th>
+            <th style="text-align:center;padding:5px"> xmatch Status</th>
+            <th style="text-align:center;padding:5px"> xmatches</th>
         </tr>
     
 
@@ -39,6 +40,7 @@
             <td style="text-align:center;padding:5px">{{event['dec']|round(4)}}</td>
             <td style="text-align:center;padding:5px">{{(event['pos_err']*60)|round(2)}}</td>
             <td style="text-align:center;padding:5px">{{event['obs_start']}}</td>
+            <td style="text-align:center;padding:5px">{{delta_t}}</td>
             <td style="text-align:center;padding:5px">{{event['exp_time']|int}}</td>
             <td style="text-align:center;padding:5px">{{event['flux']}}</td>
             <td style="text-align:center;padding:5px">{{event['src_id']}}</td>
@@ -63,13 +65,13 @@
                 <tr>
                     <th style="text-align:center;padding:5px"> objectId</th>
                     <th style="text-align:center;padding:5px"> candid</th>
-                    <th style="text-align:center;padding:5px"> RA</th>
-                    <th style="text-align:center;padding:5px"> DEC</th>
-                    <th style="text-align:center;padding:5px"> MAGPSF</th>
-                    <th style="text-align:center;padding:5px"> SIGMAPSF</th>
-                    <th style="text-align:center;padding:5px"> JD</th>
-                    <th style="text-align:center;padding:5px"> FID</th>
-                    <th style="text-align:center;padding:5px"> DRB</th>
+                    <th style="text-align:center;padding:5px"> ra</th>
+                    <th style="text-align:center;padding:5px"> dec</th>
+                    <th style="text-align:center;padding:5px"> mag</th>
+                    <th style="text-align:center;padding:5px"> magerr</th>
+                    <th style="text-align:center;padding:5px"> jd</th>
+                    <th style="text-align:center;padding:5px"> fid</th>
+                    <th style="text-align:center;padding:5px"> drb</th>
                     <th style="text-align:center;padding:5px"> δ<sub>t</sub></th>
                     <th style="text-align:center;padding:5px"> δ<sub> d (arcmin)</sub></th>
                     <th style="text-align:center;padding:5px"> δ<sub> d/err</sub></th>
