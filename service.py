@@ -6,12 +6,16 @@ import requests
 import numpy as np
 
 from penquins import Kowalski
-from db import is_db_initialized, get_db_connection, fetch_events, update_event_status, insert_xmatches, remove_xmatches_by_event_id, insert_events, ALLOWED_EVENT_COLUMNS
+from db import is_db_initialized, get_db_connection, fetch_events, update_event_status, insert_xmatches, remove_xmatches_by_event_id, insert_events, insert_archival_xmatches, ALLOWED_EVENT_COLUMNS
+
+RADIUS_MULTIPLIER_DEFAULT = 1.0
+RADIUS_MULTIPLIER = float(os.getenv('RADIUS_MULTIPLIER', RADIUS_MULTIPLIER_DEFAULT))
 
 DELTA_T_DEFAULT = 1.0  # 1 JD by default
-RADIUS_MULTIPLIER_DEFAULT = 1.0
 DELTA_T = float(os.getenv('DELTA_T', DELTA_T_DEFAULT))
-RADIUS_MULTIPLIER = float(os.getenv('RADIUS_MULTIPLIER', RADIUS_MULTIPLIER_DEFAULT))
+
+DELTA_T_ARCHIVAL = 31.0 # 31 JD (a month) by default
+DELTA_T_ARCHIVAL = float(os.getenv('DELTA_T_ARCHIVAL', DELTA_T_ARCHIVAL))
 
 EP_BASE_URL = "https://ep.bao.ac.cn/ep"
 EP_TOKEN_URL = f"{EP_BASE_URL}/api/get_tokenp"
@@ -147,6 +151,8 @@ def cone_searches(events: list, k: Kowalski):
                                 "magpsf": "$candidate.magpsf",
                                 "sigmapsf": "$candidate.sigmapsf",
                                 "drb": "$candidate.drb",
+                                "jdstarthist": "$candidate.jdstarthist",
+                                "sgscore": "$candidate.sgscore1",
                             }
                         }
                     }
@@ -170,6 +176,11 @@ def cone_searches(events: list, k: Kowalski):
             # to each matches, add a delta_t field
             # and the distance to the event position in arcsec
             for match in matches:
+                event = [e for e in events if e['name'] == event_name][0]
+                obs_start = event["obs_start"] # datetime string
+                jd = Time(obs_start).jd # jd
+                jd = jd + (15 / (60 * 24))
+
                 match['delta_t'] = match['jd'] - jd
                 match['distance_arcmin'] = great_circle_distance(
                     event['ra'], event['dec'], match['ra'], match['dec']
@@ -177,9 +188,191 @@ def cone_searches(events: list, k: Kowalski):
                 # and a distance_arcmin / pos_err ratio
                 match['distance_ratio'] = match['distance_arcmin'] / (event['pos_err'] * 60)
 
+                # compute the age
+                match['age'] = match['jd'] - match['jdstarthist']
+                del match['jdstarthist']
+
             results[event_name] = matches
 
     return results
+
+def archival_cone_searches(events, k: Kowalski):
+    # here instead of using Kowalski's conesearches feature, we'll use the 
+    # aggregation pipeline so we can:
+    # first query by position + distance
+    # then filter by time, and other quality cuts (e.g., rb, drb)
+    queries = []
+
+    for event in events:
+        obs_start = event["obs_start"] # datetime string
+        # convert to jd
+        jd = Time(obs_start).jd # jd
+
+        # we get the midpoint of the 30 minute window
+        jd = jd + (15 / (60 * 24))
+        
+        jd_start = jd - DELTA_T_ARCHIVAL
+        jd_end = jd
+
+        # convert the radius from degrees to radians by dividing by 180/pi
+        ra, dec = event["ra"], event["dec"]
+        radius_rad = event["pos_err"] / (180.0 / np.pi)
+        pipeline = [
+            {
+                "$match": {
+                    "coordinates.radec_geojson": {
+                        "$geoWithin": {
+                            "$centerSphere": [[ra - 180.0, dec], radius_rad]
+                        }
+                    },
+                    "candidate.jd": {
+                        "$gte": jd_start,
+                        "$lte": jd_end,
+                    },
+                    "candidate.rb": {
+                        "$gt": 0.3 # remove bogus detections (random forest)
+                    },
+                    "candidate.drb": {
+                        "$gt": 0.5 # remove bogus detections (deep learning)
+                    },
+                     "$and": [
+                        { # remove known solar system objects
+                            "$or": [
+                                {
+                                "candidate.ssdistnr": {
+                                    "$lt": 0
+                                }
+                                },
+                                {
+                                "candidate.ssdistnr": {
+                                    "$gte": 12
+                                }
+                                },
+                                {
+                                "candidate.ssmagnr": {
+                                    "$lte": -20
+                                }
+                                },
+                                {
+                                "candidate.ssmagnr": {
+                                    "$gte": 20
+                                }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            },
+            {
+                "$project": {
+                    "_id": 0,
+                    "object_id": "$objectId",
+                    "jd": "$candidate.jd",
+                    "jdstarthist": "$candidate.jdstarthist",
+                    "ra": "$candidate.ra",
+                    "dec": "$candidate.dec",
+                    "fid": "$candidate.fid",
+                    "magpsf": "$candidate.magpsf",
+                    "sigmapsf": "$candidate.sigmapsf",
+                    "drb": "$candidate.drb",
+                    "sgscore": "$candidate.sgscore1",
+                }
+            },
+            # then sort by jd desc
+            {
+                "$sort": {
+                    "jd": -1
+                }
+            },
+            # then group by object_id, keeping only the first one (the most recent),
+            {
+                "$group": {
+                    "_id": "$object_id",
+                    "last_detected_jd": {"$first": "$jd"},
+                    "last_detected_magpsf": {"$first": "$magpsf"},
+                    "last_detected_sigmapsf": {"$first": "$sigmapsf"},
+                    "last_detected_fid": {"$first": "$fid"},
+                    "last_detected_drb": {"$first": "$drb"},
+                    "jdstarthist": {"$first": "$jdstarthist"},
+                    "sgscore": {"$first": "$sgscore"},
+                    "ra": {"$first": "$ra"},
+                    "dec": {"$first": "$dec"},
+                }
+            },
+            # add the event name to each object, then use a group stage again
+            # so the final output is one document, with the event name and the
+            # list of objects
+            {
+                "$addFields": {
+                    "event_name": event["name"]
+                }
+            },
+            {
+                "$group": {
+                    "_id": "$event_name",
+                    "objects": {"$push": {
+                        "object_id": "$_id",
+                        "last_detected_jd": "$last_detected_jd",
+                        "last_detected_magpsf": "$last_detected_magpsf",
+                        "last_detected_sigmapsf": "$last_detected_sigmapsf",
+                        "last_detected_fid": "$last_detected_fid",
+                        "last_detected_drb": "$last_detected_drb",
+                        "jdstarthist": "$jdstarthist",
+                        "sgscore": "$sgscore",
+                        "ra": "$ra",
+                        "dec": "$dec",
+                    }}
+                }
+            }
+        ]
+
+        queries.append(
+            {
+                "query_type": "aggregate",
+                "query": {
+                    "catalog": "ZTF_alerts",
+                    "pipeline": pipeline,
+                }
+            }
+        )
+
+    # now we submit the queries in parallel, with up to 8 threads
+    responses = k.query(queries=queries, use_batch_query=True, max_n_threads=4)
+    results = {
+        event["name"]: [] for event in events
+    }
+    for response in responses.get('default', []):
+        if response.get('status') != 'success':
+            print(f'Failed to get objects at positions: {response.get("message", "")}')
+            continue
+
+        data = response.get('data', [])
+
+        if len(data) == 0:
+            continue
+
+        event_name, matches = data[0].get('_id'), data[0].get('objects', [])
+        event = [e for e in events if e['name'] == event_name][0]
+        obs_start = event["obs_start"] # datetime string
+        jd = Time(obs_start).jd # jd
+        jd = jd + (15 / (60 * 24))
+        # to each matches, add a delta_t field
+        # and the distance to the event position in arcsec
+        for match in matches:
+            match['delta_t'] = match['last_detected_jd'] - jd
+            match['distance_arcmin'] = great_circle_distance(
+                event['ra'], event['dec'], match['ra'], match['dec']
+            ) * 60
+            # and a distance_arcmin / pos_err ratio
+            match['distance_ratio'] = match['distance_arcmin'] / (event['pos_err'] * 60)
+
+            # compute the age for each
+            match['last_detected_age'] = match['last_detected_jd'] - match['jdstarthist']
+            del match['jdstarthist']
+        results[event_name] = matches
+
+    return results
+
 
 def get_ep_token():
     if EP_EMAIL is None or EP_PASSWORD is None:
@@ -242,7 +435,7 @@ def service(k: Kowalski, last_event_fetch: float) -> float:
                     print(f'Failed to insert events: {e}')
             
         # QUERY SOURCES FOR NEW EVENTS
-        events, _ = fetch_events(None, c, status='pending')
+        new_events, _ = fetch_events(None, c, status='pending')
 
         # also query events that should be reprocessed:
         # - the status is done (already queried)
@@ -252,9 +445,9 @@ def service(k: Kowalski, last_event_fetch: float) -> float:
         if not events_to_reprocess:
             events_to_reprocess = []
 
-        events += events_to_reprocess
-
+        events = new_events + events_to_reprocess
         if not events:
+            print('No events to process')
             return last_event_fetch
 
         print(f'Found {len(events)} events to process (including {len(events_to_reprocess)} to reprocess)')
@@ -279,6 +472,24 @@ def service(k: Kowalski, last_event_fetch: float) -> float:
                 traceback.print_exc()
                 print(f'Failed to process event {event["name"]}: {e}')
                 update_event_status(event['id'], f'failed: {str(e)}', c)
+        conn.commit()
+
+        # for the new events only, we perform archival searches
+        for event in new_events:
+            try:
+                results = archival_cone_searches([event], k)
+                print(f'Found {len(results[event["name"]])} archival matches for event {event["name"]}')
+
+                xmatches = results[event["name"]]
+                if len(xmatches) > 0:
+                    for xmatch in xmatches:
+                        xmatch['event_id'] = event['id']
+                    insert_archival_xmatches(xmatches, c)
+            except Exception as e:
+                traceback.print_exc()
+                print(f'Failed to process archival event {event["name"]}: {e}')
+                update_event_status(event['id'], f'failed: {str(e)}', c)
+
         conn.commit()
 
     return last_event_fetch

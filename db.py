@@ -23,76 +23,13 @@ def db_init(username, password):
     conn = sqlite3.connect('./data/database.db')
     c = conn.cursor()
 
-    try:
-        c.execute('''
-            CREATE TABLE users (
-                id INTEGER PRIMARY KEY,
-                username TEXT,
-                password TEXT,
-                email TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                type TEXT DEFAULT 'normal' CHECK (type IN ('normal', 'admin')),
-                UNIQUE (username, email)
-            )
-        ''')
-    except sqlite3.OperationalError:
-        print("Users table already exists.")
-
-    try:
-        # create the events table
-        c.execute('''
-            CREATE TABLE events (
-                id INTEGER PRIMARY KEY,
-                name TEXT,
-                ra REAL,
-                dec REAL,
-                pos_err REAL,
-                obs_start TIMESTAMP,
-                exp_time REAL,
-                flux REAL,
-                src_id INTEGER,
-                src_significance REAL,
-                bkg_counts REAL,
-                net_counts REAL,
-                net_rate REAL,
-                version TEXT,
-                last_queried TIMESTAMP,
-                query_status TEXT DEFAULT 'pending',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE (name, version)
-            )
-        ''')
-    except sqlite3.OperationalError:
-        print("Events table already exists.")
-
-    try:
-        # create the xmatches table
-        c.execute('''
-            CREATE TABLE xmatches (
-                id INTEGER PRIMARY KEY,
-                event_id INTEGER,
-                candid INTEGER,
-                object_id TEXT,
-                jd REAL,
-                ra REAL,
-                dec REAL,
-                fid INTEGER,
-                magpsf REAL,
-                sigmapsf REAL,
-                drb REAL,
-                delta_t REAL,
-                distance_arcmin REAL,
-                distance_ratio REAL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                flags TEXT,
-                UNIQUE (event_id, candid)
-            )
-        ''')
-    except sqlite3.OperationalError:
-        print("xmatches table already exists.")
+    # check if the database is already initialized
+    if not is_db_initialized():
+        print("Database not initialized. Creating tables...")
+        from migrate import run_migrations
+        run_migrations()
+    else:
+        print("Database already initialized. Skipping table creation.")
 
     # if there is no admin user yet, create one
     existing_user = c.execute('SELECT * FROM users WHERE username = ? AND type = ?', (username, 'admin')).fetchone()
@@ -162,6 +99,15 @@ def insert_xmatches(xmatches: list, c: sqlite3.Cursor) -> None:
             # update the xmatch with the new values
             c.execute(f"UPDATE xmatches SET {','.join([f'{k}=?' for k in xmatch.keys()])} WHERE id=?", (*xmatch.values(), xmatch['id']))
 
+def insert_archival_xmatches(archival_xmatches: list, c: sqlite3.Cursor) -> None:
+    for archival_xmatch in archival_xmatches:
+        query = f"INSERT INTO archival_xmatches ({','.join(archival_xmatch.keys())}) VALUES ({','.join(['?']*len(archival_xmatch))})"
+        try:
+            c.execute(query, tuple(archival_xmatch.values()))
+        except sqlite3.IntegrityError:
+            # update the xmatch with the new values
+            c.execute(f"UPDATE archival_xmatches SET {','.join([f'{k}=?' for k in archival_xmatch.keys()])} WHERE id=?", (*archival_xmatch.values(), archival_xmatch['id']))
+
 def update_event_status(event_id: int, status: str, c: sqlite3.Cursor) -> None:
     # when we update the query_status, we also want to update the updated_at timestamp, and the last_queried timestamp
     c.execute(f"UPDATE events SET query_status=?, updated_at=CURRENT_TIMESTAMP, last_queried=CURRENT_TIMESTAMP WHERE id=?", (status, event_id))
@@ -193,7 +139,7 @@ def fetch_events(event_names: list, c: sqlite3.Cursor, **kwargs) -> Tuple[list, 
         parameters.append(datetime.utcnow() - timedelta(minutes=10))
     if kwargs.get('matchesOnly') == True:
         #  here we only return events if they have matches in the xmatches table
-        conditions.append(' id IN (SELECT event_id FROM xmatches where event_id = events.id GROUP BY event_id)')
+        conditions.append('(id IN (SELECT event_id FROM xmatches where event_id = events.id GROUP BY event_id) OR id IN (SELECT event_id FROM archival_xmatches where event_id = events.id GROUP BY event_id))')
     
     if len(conditions) > 0:
         query += ' WHERE' + ' AND'.join(conditions)
@@ -227,7 +173,16 @@ def fetch_xmatches(event_ids: list, c: sqlite3.Cursor) -> list:
     if event_ids is None:
         c.execute('SELECT * FROM xmatches order by id')
     else:
-        c.execute(f'SELECT * FROM xmatches WHERE event_id IN ({",".join(event_ids)}) order by jd')
+        c.execute(f'SELECT * FROM xmatches WHERE event_id IN ({",".join(event_ids)}) order by jd desc, object_id desc')
+
+    return c.fetchall()
+
+def fetch_archival_xmatches(event_ids: list, c: sqlite3.Cursor) -> list:
+    event_ids = [str(event_id) for event_id in event_ids]
+    if event_ids is None:
+        c.execute('SELECT * FROM archival_xmatches order by id')
+    else:
+        c.execute(f'SELECT * FROM archival_xmatches WHERE event_id IN ({",".join(event_ids)}) order by last_detected_jd desc, object_id desc')
 
     return c.fetchall()
 
@@ -239,7 +194,8 @@ if __name__ == "__main__":
     parser.add_argument('--adminpassword', type=str, default='admin', help='Admin password.')
     args = parser.parse_args()
     if args.init:
+        print("---Initializing database---")
         db_init(args.adminusername, args.adminpassword)
-        print("---Database initialized---")
+        print("---Completed database initialization---")
     else:
         print("Nothing to do.")

@@ -62,7 +62,7 @@
             <table border="1" style='margin-left:auto;margin-right:auto'>
                 <tr>
                     <th style="text-align:center;padding:5px"> objectId</th>
-                    <th style="text-align:center;padding:5px"> candid</th>
+                    <!-- <th style="text-align:center;padding:5px"> candid</th> -->
                     <th style="text-align:center;padding:5px"> ra</th>
                     <th style="text-align:center;padding:5px"> dec</th>
                     <th style="text-align:center;padding:5px"> mag</th>
@@ -70,6 +70,8 @@
                     <th style="text-align:center;padding:5px"> jd</th>
                     <th style="text-align:center;padding:5px"> fid</th>
                     <th style="text-align:center;padding:5px"> drb</th>
+                    <th style="text-align:center;padding:5px"> age</th>
+                    <th style="text-align:center;padding:5px"> sgscore</th>
                     <th style="text-align:center;padding:5px"> δ<sub>t</sub></th>
                     <th style="text-align:center;padding:5px"> δ<sub> d (arcmin)</sub></th>
                     <th style="text-align:center;padding:5px"> δ<sub> d/err</sub></th>
@@ -82,14 +84,16 @@
                         {% else %}
                             <td style="text-align:center;padding:5px">{{xmatch['object_id']}}</td>
                         {% endif %}
-                        <td style="text-align:center;padding:5px">{{xmatch['candid']}}</td>
+                        <!-- <td style="text-align:center;padding:5px">{{xmatch['candid']}}</td> -->
                         <td style="text-align:center;padding:5px">{{xmatch['ra']|round(4)}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['dec']|round(4)}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['magpsf']|round(4)}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['sigmapsf']|round(4)}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['jd']|round(4)}}</td>
-                        <td style="text-align:center;padding:5px">{{xmatch['fid']|round(4)}}</td>
-                        <td style="text-align:center;padding:5px">{{xmatch['drb']|round(4)}}</td>
+                        <td style="text-align:center;padding:5px">{{xmatch['fid']}}</td>
+                        <td style="text-align:center;padding:5px">{{xmatch['drb']|round(2)}}</td>
+                        <td style="text-align:center;padding:5px">{{xmatch['age']|round(2)}}</td>
+                        <td style="text-align:center;padding:5px">{{xmatch['sgscore']|round(2)}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['delta_t']}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['distance_arcmin']|round(2)}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['distance_ratio']|round(2)}}</td>
@@ -101,6 +105,72 @@
             <h3>No matches found for this EP source.</h3>
         </div>
     {% endif %}
+
+    <br />
+    <hr/>
+
+    <div style="text-align:center">
+        <h2>Archival Matches:</h2>
+    </div>
+
+    <br />
+
+    {% if archival_xmatches|length > 0 %}
+            <table border="1" style='margin-left:auto;margin-right:auto'>
+                <tr>
+                    <th style="text-align:center;padding:5px"> objectId</th>
+                    <th style="text-align:center;padding:5px"> ra</th>
+                    <th style="text-align:center;padding:5px"> dec</th>
+                    <th style="text-align:center;padding:5px"> mag</th>
+                    <th style="text-align:center;padding:5px"> magerr</th>
+                    <th style="text-align:center;padding:5px"> jd</th>
+                    <th style="text-align:center;padding:5px"> fid</th>
+                    <th style="text-align:center;padding:5px"> drb</th>
+                    <th style="text-align:center;padding:5px"> age</th>
+                    <th style="text-align:center;padding:5px"> sgscore</th>
+                    <th style="text-align:center;padding:5px"> δ<sub>t</sub></th>
+                    <th style="text-align:center;padding:5px"> δ<sub> d (arcmin)</sub></th>
+                    <th style="text-align:center;padding:5px"> δ<sub> d/err</sub></th>
+                </tr>
+                {% for xmatch in archival_xmatches %}
+                    <tr>
+                         {% if is_admin %}
+                            <td style="text-align:center;padding:5px"><a href="https://fritz.science/alerts/ztf/{{xmatch['object_id']}}" target="_blank">{{xmatch['object_id']}}</a></td>
+                        {% else %}
+                            <td style="text-align:center;padding:5px">{{xmatch['object_id']}}</td>
+                        {% endif %}
+                        <td style="text-align:center;padding:5px">{{xmatch['ra']|round(4)}}</td>
+                        <td style="text-align:center;padding:5px">{{xmatch['dec']|round(4)}}</td>
+                        <td style="text-align:center;padding:5px">{{xmatch['last_detected_magpsf']|round(4)}}</td>
+                        <td style="text-align:center;padding:5px">{{xmatch['last_detected_sigmapsf']|round(4)}}</td>
+                        <td style="text-align:center;padding:5px">{{xmatch['last_detected_jd']|round(4)}}</td>
+                        <td style="text-align:center;padding:5px">{{xmatch['last_detected_fid']}}</td>
+                        <td style="text-align:center;padding:5px">{{xmatch['last_detected_drb']|round(2)}}</td>
+                        <td style="text-align:center;padding:5px">{{xmatch['last_detected_age']|round(2)}}</td>
+                        <td style="text-align:center;padding:5px">{{xmatch['sgscore']|round(2)}}</td>
+                        <td style="text-align:center;padding:5px">{{xmatch['delta_t']}}</td>
+                        <td style="text-align:center;padding:5px">{{xmatch['distance_arcmin']|round(2)}}</td>
+                        <td style="text-align:center;padding:5px">{{xmatch['distance_ratio']|round(2)}}</td>
+                    </tr>
+                {% endfor %}
+        </table>
+    {% else %}
+        <div style='width:100%;text-align:center'>
+            <h3>No archival matches found for this EP source.</h3>
+        </div>
+    {% endif %}
+
+    <br />
+    <hr/>
+
+    <div style='width:100%;text-align:center'>
+        <p>
+            Note: The xmatch status is updated every 5 minutes for recent matches (not archival ones, going back 30 days and computed only once).
+            <br />
+            If the status is "processing" or "pending", please check back later.
+        </p>
+    <br />
+    </div>
     </div>
     {% endblock %}
 {% endblock %}

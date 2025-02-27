@@ -14,3 +14,4 @@ services:
       - EP_EMAIL=<your-email>
       - EP_PASSWORD=<your-password>
       - DELTA_T=1.0
+      - DELTA_T_ARCHIVAL=30.0

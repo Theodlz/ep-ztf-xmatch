@@ -11,7 +11,7 @@ monkey.patch_all()
 from astropy.time import Time
 from flask import Flask, request, render_template, redirect
 
-from db import is_db_initialized, get_db_connection, ALLOWED_EVENT_COLUMNS, insert_events, fetch_event, fetch_events, fetch_xmatches
+from db import is_db_initialized, get_db_connection, ALLOWED_EVENT_COLUMNS, insert_events, fetch_event, fetch_events, fetch_xmatches, fetch_archival_xmatches
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__)) + '/data'
 
@@ -283,6 +283,8 @@ def make_app():
             for event in events:
                 count = c.execute('SELECT COUNT(*) FROM xmatches WHERE event_id = ?', (event['id'],)).fetchone()['COUNT(*)']
                 event['num_xmatches'] = count
+                count = c.execute('SELECT COUNT(*) FROM archival_xmatches WHERE event_id = ?', (event['id'],)).fetchone()['COUNT(*)']
+                event['num_archival_xmatches'] = count
                 dt = (now - Time(event['obs_start']).jd) * 24
                 if dt < 24:
                     event['delta_t'] = f"<{int(dt + 0.5)}h"
@@ -336,11 +338,25 @@ def make_app():
                 else:
                     xmatch['delta_t'] = f"{int(dt + 0.5)}d"
 
-            event['xmatches'] = xmatches
+            # same with archival xmatches
+            archival_xmatches = fetch_archival_xmatches([event['id']], c)
+            for xmatch in archival_xmatches:
+                dt = float(xmatch['delta_t'])
+                # if it's less than 1 hour, show in minutes
+                if abs(dt) < 1/24:
+                    xmatch['delta_t'] = f"{int(dt * 24 * 60 + 0.5)}m"
+                # if it's less than 1 day, show in hours
+                elif abs(dt) < 1:
+                    xmatch['delta_t'] = f"{int(dt * 24 + 0.5)}h"
+                # else show in days
+                else:
+                    xmatch['delta_t'] = f"{int(dt + 0.5)}d"
+
             return render_template(
                 'event.html',
                 event=event,
                 xmatches=xmatches,
+                archival_xmatches=archival_xmatches,
                 username=request.user.get('username'),
                 is_admin=request.user.get('type') == 'admin',
             )
