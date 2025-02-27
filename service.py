@@ -97,19 +97,19 @@ def cone_searches(events: list, k: Kowalski):
                                 "candidate.drb": {
                                     "$gt": 0.5 # remove bogus detections (deep learning)
                                 },
-                                "candidate.jdstarthist": { # remove old objects
-                                    "$gte": jd_start - 1,
-                                },
-                                "candidate.isdiffpos": { "$in": ["t", "T", "true", "True", True, "1", 1] },
+                                # "candidate.jdstarthist": { # remove old objects
+                                #     "$gte": jd_start - 1,
+                                # },
+                                # "candidate.isdiffpos": { "$in": ["t", "T", "true", "True", True, "1", 1] },
                                 "$and": [
-                                    { # remove known stellar sources
-                                        "$or": [
-                                            {"candidate.sgscore1": {"$lt": 0.7}},
-                                            {"candidate.distpsnr1": {"$gt": 10}},
-                                            {"candidate.distpsnr2": {"$lt": 0}},
-                                            {"candidate.distpsnr2": {"$eq": None}},
-                                        ]
-                                    },
+                                    # { # remove known stellar sources
+                                    #     "$or": [
+                                    #         {"candidate.sgscore1": {"$lt": 0.7}},
+                                    #         {"candidate.distpsnr1": {"$gt": 10}},
+                                    #         {"candidate.distpsnr2": {"$lt": 0}},
+                                    #         {"candidate.distpsnr2": {"$eq": None}},
+                                    #     ]
+                                    # },
                                     { # remove known solar system objects
                                         "$or": [
                                             {
@@ -304,6 +304,7 @@ if __name__ == "__main__":
 
     last_event_fetch = None
 
+    print('Starting service...')
     while True:
         try:
             last_event_fetch = service(k, last_event_fetch)
