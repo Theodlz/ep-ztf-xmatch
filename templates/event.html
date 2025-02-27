@@ -92,8 +92,16 @@
                         <td style="text-align:center;padding:5px">{{xmatch['jd']|round(4)}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['fid']}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['drb']|round(2)}}</td>
-                        <td style="text-align:center;padding:5px">{{xmatch['age']|round(2)}}</td>
-                        <td style="text-align:center;padding:5px">{{xmatch['sgscore']|round(2)}}</td>
+                        {% if xmatch['age'] is defined %}
+                            <td style="text-align:center;padding:5px">{{xmatch['age']|round(2)}}</td>
+                        {% else %}
+                            <td style="text-align:center;padding:5px">--</td>
+                        {% endif %}
+                        {% if xmatch['sgscore'] is defined %}
+                            <td style="text-align:center;padding:5px">{{xmatch['sgscore']|round(2)}}</td>
+                        {% else %}
+                            <td style="text-align:center;padding:5px">--</td>
+                        {% endif %}
                         <td style="text-align:center;padding:5px">{{xmatch['delta_t']}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['distance_arcmin']|round(2)}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['distance_ratio']|round(2)}}</td>
