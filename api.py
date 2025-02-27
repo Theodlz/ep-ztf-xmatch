@@ -336,9 +336,6 @@ def make_app():
                 else:
                     xmatch['delta_t'] = f"{int(dt + 0.5)}d"
 
-                if dt < 0:
-                    xmatch['delta_t'] = '-' + xmatch['delta_t']
-
             event['xmatches'] = xmatches
             return render_template(
                 'event.html',
