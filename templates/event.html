@@ -92,12 +92,13 @@
                         <td style="text-align:center;padding:5px">{{xmatch['jd']|round(4)}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['fid']}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['drb']|round(2)}}</td>
-                        {% if xmatch['age'] is defined %}
+                        <!-- check if age is None -->
+                        {% if xmatch['age'] is not none %}
                             <td style="text-align:center;padding:5px">{{xmatch['age']|round(2)}}</td>
                         {% else %}
                             <td style="text-align:center;padding:5px">--</td>
                         {% endif %}
-                        {% if xmatch['sgscore'] is defined %}
+                        {% if xmatch['sgscore'] is not none %}
                             <td style="text-align:center;padding:5px">{{xmatch['sgscore']|round(2)}}</td>
                         {% else %}
                             <td style="text-align:center;padding:5px">--</td>
@@ -154,12 +155,12 @@
                         <td style="text-align:center;padding:5px">{{xmatch['last_detected_jd']|round(4)}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['last_detected_fid']}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['last_detected_drb']|round(2)}}</td>
-                        {% if xmatch['last_detected_age'] is defined %}
+                        {% if xmatch['last_detected_age'] is not none %}
                             <td style="text-align:center;padding:5px">{{xmatch['last_detected_age']|round(2)}}</td>
                         {% else %}
                             <td style="text-align:center;padding:5px">--</td>
                         {% endif %}
-                        {% if xmatch['sgscore'] is defined %}
+                        {% if xmatch['sgscore'] is not none %}
                             <td style="text-align:center;padding:5px">{{xmatch['sgscore']|round(2)}}</td>
                         {% else %}
                             <td style="text-align:center;padding:5px">--</td>
