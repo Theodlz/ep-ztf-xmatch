@@ -17,6 +17,7 @@ RUN sh /uv-installer.sh && rm /uv-installer.sh && \
 
 COPY ["api.py", \
         "db.py", \
+        "migrate.py", \
         "service.py", \
         "pyproject.toml", \
         "supervisord.conf", \
@@ -30,5 +31,5 @@ RUN source .venv/bin/activate && \
     mkdir log && mkdir log/sv_child && mkdir run
 
 # run container
-CMD ["/bin/bash", "-c", "source .venv/bin/activate && uv run supervisord -c supervisord.conf"]
+CMD ["/bin/bash", "-c", "source .venv/bin/activate && uv run python migrate.py && uv run supervisord -c supervisord.conf"]
 
