@@ -323,12 +323,22 @@ def make_app():
                     'message': 'Event not found',
                 }, 404
             
-            obs_start = event['obs_start']
-            obs_start_jd = Time(obs_start).jd
-            
             xmatches = fetch_xmatches([event['id']], c)
             for xmatch in xmatches:
-                xmatch['delta_t'] = xmatch['jd'] - obs_start_jd
+                dt = float(xmatch['delta_t'])
+                # if it's less than 1 hour, show in minutes
+                if abs(dt) < 1/24:
+                    xmatch['delta_t'] = f"{int(dt * 24 * 60 + 0.5)}m"
+                # if it's less than 1 day, show in hours
+                elif abs(dt) < 1:
+                    xmatch['delta_t'] = f"{int(dt * 24 + 0.5)}h"
+                # else show in days
+                else:
+                    xmatch['delta_t'] = f"{int(dt + 0.5)}d"
+
+                if dt < 0:
+                    xmatch['delta_t'] = '-' + xmatch['delta_t']
+
             event['xmatches'] = xmatches
             return render_template(
                 'event.html',

@@ -21,7 +21,6 @@
             <th style="text-align:center;padding:5px"> dec</th>
             <th style="text-align:center;padding:5px"> err<sub>(arcmin)</sub></th>
             <th style="text-align:center;padding:5px"> time</th>
-            <th style="text-align:center;padding:5px"> δ<sub>t (now)</sub></th>
             <th style="text-align:center;padding:5px"> exposure</th>
             <th style="text-align:center;padding:5px"> flux</th>
             <th style="text-align:center;padding:5px"> src ID</th>
@@ -40,7 +39,6 @@
             <td style="text-align:center;padding:5px">{{event['dec']|round(4)}}</td>
             <td style="text-align:center;padding:5px">{{(event['pos_err']*60)|round(2)}}</td>
             <td style="text-align:center;padding:5px">{{event['obs_start']}}</td>
-            <td style="text-align:center;padding:5px">{{delta_t}}</td>
             <td style="text-align:center;padding:5px">{{event['exp_time']|int}}</td>
             <td style="text-align:center;padding:5px">{{event['flux']}}</td>
             <td style="text-align:center;padding:5px">{{event['src_id']}}</td>
@@ -92,7 +90,7 @@
                         <td style="text-align:center;padding:5px">{{xmatch['jd']|round(4)}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['fid']|round(4)}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['drb']|round(4)}}</td>
-                        <td style="text-align:center;padding:5px">{{xmatch['delta_t']|round(2)}}</td>
+                        <td style="text-align:center;padding:5px">{{xmatch['delta_t']}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['distance_arcmin']|round(2)}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['distance_ratio']|round(2)}}</td>
                     </tr>
