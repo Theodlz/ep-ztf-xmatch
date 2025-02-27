@@ -8,7 +8,7 @@ import numpy as np
 from penquins import Kowalski
 from db import is_db_initialized, get_db_connection, fetch_events, update_event_status, insert_xmatches, remove_xmatches_by_event_id, insert_events, ALLOWED_EVENT_COLUMNS
 
-DELTA_T_DEFAULT = (1 / (60 * 24)) * 20  # 20 minutes in days (JD)
+DELTA_T_DEFAULT = 1.0  # 1 JD by default
 RADIUS_MULTIPLIER_DEFAULT = 1.0
 DELTA_T = float(os.getenv('DELTA_T', DELTA_T_DEFAULT))
 RADIUS_MULTIPLIER = float(os.getenv('RADIUS_MULTIPLIER', RADIUS_MULTIPLIER_DEFAULT))
@@ -63,6 +63,9 @@ def cone_searches(events: list, k: Kowalski):
         obs_start = event["obs_start"] # datetime string
         # convert to jd
         jd = Time(obs_start).jd # jd
+
+        # we get the midpoint of the 30 minute window
+        jd = jd + (15 / (60 * 24))
         
         jd_start = jd - DELTA_T
         jd_end = jd + DELTA_T
