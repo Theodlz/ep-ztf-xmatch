@@ -265,6 +265,8 @@ def make_app():
         is_admin = request.user.get('type') == 'admin'
 
         version = request.args.get('version', None)
+        if version == '':
+            version = None
         if version is not None:
             # version should be v + number
             if not version.startswith('v'):

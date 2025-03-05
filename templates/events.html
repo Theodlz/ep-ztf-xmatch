@@ -59,7 +59,7 @@
 
             {% for event in events %}
                 <tr>
-                <td style="text-align:center;padding:5px"><a href="/events/{{event['name']}}">{{event['name']}}</a></td>
+                <td style="text-align:center;padding:5px"><a href="/events/{{event['name']}}?version={{event['version']}}">{{event['name']}}</a></td>
                     <td style="text-align:center;padding:5px">{{event['ra']|round(4)}}</td>
                     <td style="text-align:center;padding:5px">{{event['dec']|round(4)}}</td>
                     <td style="text-align:center;padding:5px">{{(event['pos_err']*60)|round(2)}}</td>
