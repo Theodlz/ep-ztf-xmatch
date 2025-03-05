@@ -264,14 +264,31 @@ def make_app():
         
         is_admin = request.user.get('type') == 'admin'
 
+        version = request.args.get('version', None)
+        if version is not None:
+            # version should be v + number
+            if not version.startswith('v'):
+                return {
+                    'message': 'Invalid version',
+                }, 400
+            elif not version[1:].isdigit():
+                return {
+                    'message': 'Invalid version',
+                }, 400
+
         with get_db_connection() as conn:
             c = conn.cursor()
-            event = fetch_event(event_name, c)
-            
+            event = fetch_event(
+                event_name, c,
+                version=version,
+            )
             if event is None:
                 return {
                     'message': 'Event not found',
                 }, 404
+            
+            versions = c.execute('SELECT version FROM events WHERE name = ? ORDER BY version DESC', (event_name,)).fetchall()
+            versions = [v['version'] for v in versions]
             
             xmatches = fetch_xmatches([event['id']], c)
             for xmatch in xmatches:
@@ -305,6 +322,7 @@ def make_app():
             return render_template(
                 'event.html',
                 event=event,
+                versions=versions,
                 xmatches=xmatches,
                 archival_xmatches=archival_xmatches,
                 username=request.user.get('username'),

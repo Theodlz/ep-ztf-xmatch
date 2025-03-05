@@ -164,12 +164,18 @@ def fetch_events(event_names: list, c: sqlite3.Cursor, **kwargs) -> Tuple[list, 
     events = c.execute(query, tuple(parameters)).fetchall()
 
     return events, count
-    
 
+def fetch_event(event_name: str, c: sqlite3.Cursor, **kwargs) -> list:
+    query = 'SELECT * FROM events'
+    conditions = [' name = ?']
+    parameters = [event_name]
+    if kwargs.get('version') is not None:
+        conditions.append(' version = ?')
+        parameters.append(kwargs.get('version'))
 
-def fetch_event(event_name: str, c: sqlite3.Cursor) -> list:
-    query = 'SELECT * FROM events WHERE name = ?'
-    c.execute(query, (event_name,))
+    query += ' WHERE' + ' AND'.join(conditions)
+
+    c.execute(query, tuple(parameters))
     return c.fetchone()
 
 def fetch_event_by_id(event_id: int, c: sqlite3.Cursor) -> list:

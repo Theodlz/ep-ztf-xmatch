@@ -11,7 +11,16 @@
 {% block content %}
     {% block body %}
     <div style="width: 100%; padding: 20px;">
-        <h1 style="text-align:center">{{event['name']}}</h1>
+        <div style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 20px;">
+            <h1 style="text-align:center">{{event['name']}}</h1>
+            <div>
+                <select name="version" id="version">
+                    {% for version in versions %}
+                        <option value="{{version}}" {% if version == event['version'] %}selected{% endif %}>{{version}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
     <hr/>
     <br />
     <table border="1" style='margin-left:auto;margin-right:auto'>
@@ -28,6 +37,7 @@
             <th style="text-align:center;padding:5px"> bkg counts</th>
             <th style="text-align:center;padding:5px"> net counts</th>
             <th style="text-align:center;padding:5px"> net rate</th>
+            <th style="text-align:center;padding:5px"> version</th>
             <th style="text-align:center;padding:5px"> xmatch Status</th>
             <th style="text-align:center;padding:5px"> xmatches</th>
         </tr>
@@ -46,6 +56,7 @@
             <td style="text-align:center;padding:5px">{{event['bkg_counts']|round(4)}}</td>
             <td style="text-align:center;padding:5px">{{event['net_counts']|round(4)}}</td>
             <td style="text-align:center;padding:5px">{{event['net_rate']|round(4)}}</td>
+            <td style="text-align:center;padding:5px">{{event['version']}}</td>
             <td style="text-align:center;padding:5px">{{event['query_status']}}</td>
             <td style="text-align:center;padding:5px">{{xmatches|length}}</td>
         </tr>
@@ -182,6 +193,14 @@
         <br />
         <hr/>
     {% endif %}
+
+    <script>
+        document.getElementById('version').addEventListener('change', function() {
+            if (this.value) {
+                window.location.href = '/events/{{event["name"]}}?version=' + this.value;
+            }
+        });
+    </script>
 
     </div>
     {% endblock %}
