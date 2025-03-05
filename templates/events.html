@@ -14,9 +14,25 @@
         <h1 style="text-align:center">EP Sources</h1>
     <hr/>
     <br />
-     <div style="text-align:right">
-        <input type="checkbox" id="matchesOnly" name="matchesOnly" {% if matchesOnly %}checked{% endif %}>
-        <label for="matchesOnly">Only show events with xmatches</label>
+    <div style="text-align:right; display: flex; justify-content: right; gap: 20px;">
+        <div>
+            <input type="checkbox" id="latestOnly" name="latestOnly" {% if latestOnly %}checked{% endif %}>
+            <label for="latestOnly">Only latest version</label>
+        </div>
+        <div style="display: flex; justify-content: right; gap: 5px;">
+            <div>
+            <input type="checkbox" id="matchesOnly" name="matchesOnly" {% if matchesOnly %}checked{% endif %}>
+            <label for="matchesOnly">Only with xmatches</label>
+            </div>
+            {% if is_admin %}
+                <div style="display: {% if matchesOnly %}block{% else %}none{% endif %};">
+                    (
+                    <input type="checkbox" id="matchesOnlyIgnoreArchival" name="matchesOnlyIgnoreArchival" {% if matchesOnlyIgnoreArchival %}checked{% endif %}>
+                    <label for="matchesOnlyIgnoreArchival">ignore archival</label>
+                    )
+                </div>
+            {% endif %}
+        </div>
     </div>
         <table border="1" style='margin-left:auto;margin-right:auto'>
             <tr>
@@ -33,6 +49,7 @@
                 <th style="text-align:center;padding:5px"> bkg counts</th>
                 <th style="text-align:center;padding:5px"> net counts</th>
                 <th style="text-align:center;padding:5px"> net rate</th>
+                <th style="text-align:center;padding:5px"> version</th>
                 <th style="text-align:center;padding:5px"> xmatch status</th>
                 <th style="text-align:center;padding:5px"> xmatches</th>
                 {% if is_admin %}
@@ -55,6 +72,7 @@
                     <td style="text-align:center;padding:5px">{{event['bkg_counts']|round(4)}}</td>
                     <td style="text-align:center;padding:5px">{{event['net_counts']|round(4)}}</td>
                     <td style="text-align:center;padding:5px">{{event['net_rate']|round(4)}}</td>
+                    <td style="text-align:center;padding:5px">{{event['version']}}</td>
                     <td style="text-align:center;padding:5px;background-color: {% if event['query_status'] == 'processing' or event['query_status'] == 'pending' %}#FFD700{% elif event['query_status']|slice(0,6) == 'failed' %}#FF6347{% endif %}">{{event['query_status']}}</td>
                     <td style="text-align:center;padding:5px;background-color: {% if event['num_xmatches'] > 0 %}#50C878{% endif %}">{{event['num_xmatches']}}</td>
                     {% if is_admin %}
@@ -97,23 +115,41 @@
             </div>
 
             <script>
+                {% if is_admin %}
+                    function applyFilters(pageNumber, numPerPage) {
+                        const matchesOnly = document.getElementById('matchesOnly').checked;
+                        const matchesOnlyIgnoreArchival = document.getElementById('matchesOnlyIgnoreArchival').checked;
+                        const latestOnly = document.getElementById('latestOnly').checked;
+                        return `/?pageNumber=${pageNumber}&numPerPage=${numPerPage}&matchesOnly=${matchesOnly}&matchesOnlyIgnoreArchival=${matchesOnlyIgnoreArchival}&latestOnly=${latestOnly}`;
+                    }
+                {% else %}
+                    function applyFilters(pageNumber, numPerPage) {
+                        const matchesOnly = document.getElementById('matchesOnly').checked;
+                        const latestOnly = document.getElementById('latestOnly').checked;
+                        return `/?pageNumber=${pageNumber}&numPerPage=${numPerPage}&matchesOnly=${matchesOnly}&latestOnly=${latestOnly}`;
+                    }
+                {% endif %}
                 document.getElementById('pageNumber').onchange = function() {
-                    console.log('pageNumber changed');
                     //  if its different from the current page number, submit the form
                     if (this.value != {{pageNumber}}) {
-                        window.location.href = `/?pageNumber=${this.value}&numPerPage={{numPerPage}}&matchesOnly={{matchesOnly}}`;
-                        
+                        window.location.href = applyFilters(this.value, {{numPerPage}});
                     }
                 };
                 document.getElementById('numPerPage').onchange = function() {
-                    console.log('numPerPage changed');
                     if (this.value != {{numPerPage}}) {
-                        window.location.href = `/?pageNumber={{pageNumber}}&numPerPage=${this.value}&matchesOnly={{matchesOnly}}`;
+                        window.location.href = applyFilters({{pageNumber}}, this.value);
                     }
                 };
                 document.getElementById('matchesOnly').onchange = function() {
-                    console.log('matchesOnly changed');
-                    window.location.href = `/?pageNumber={{pageNumber}}&numPerPage={{numPerPage}}&matchesOnly=${this.checked}`;
+                    window.location.href = applyFilters({{pageNumber}}, {{numPerPage}});
+                };
+                {% if is_admin %}
+                    document.getElementById('matchesOnlyIgnoreArchival').onchange = function() {
+                        window.location.href = applyFilters({{pageNumber}}, {{numPerPage}});
+                    };
+                {% endif %}
+                document.getElementById('latestOnly').onchange = function() {
+                    window.location.href = applyFilters({{pageNumber}}, {{numPerPage}});
                 };
             </script>
         </div>

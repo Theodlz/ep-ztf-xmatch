@@ -432,7 +432,7 @@ def service(k: Kowalski, last_event_fetch: float) -> float:
                     raise ValueError('Event does not have all required columns: ' + ', '.join(missing))
                     
             if len(new_events) > 0:
-                print(f'Inserting {len(new_events)} events (including duplicates)')
+                print(f'Inserting {len(new_events)} events (skips existing ones)')
                 try:
                     insert_events(new_events, c)
                     conn.commit()

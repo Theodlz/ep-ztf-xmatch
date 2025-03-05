@@ -193,19 +193,32 @@ def make_app():
         pageNumber = request.args.get('pageNumber', 1)
         numPerPage = request.args.get('numPerPage', 10)
         matchesOnly = request.args.get('matchesOnly', False)
+        matchesOnlyIgnoreArchival = request.args.get('matchesOnlyIgnoreArchival', False)
+        latestOnly = request.args.get('latestOnly', True)
         try:
             pageNumber = int(pageNumber)
             numPerPage = int(numPerPage)
             matchesOnly = bool(str(matchesOnly).lower() == 'true')
+            matchesOnlyIgnoreArchival = bool(str(matchesOnlyIgnoreArchival).lower() == 'true')
+            latestOnly = bool(str(latestOnly).lower() == 'true')
         except Exception as e:
             return {
                 'message': 'Invalid query parameters',
             }, 400
         
+        if not is_admin: # if the user is NOT an admin, always ignore archival
+            matchesOnlyIgnoreArchival = True
+        
         now = Time.now().jd
         with get_db_connection() as conn:
             c = conn.cursor()
-            events, totalMatches = fetch_events(None, c, pageNumber=pageNumber, numPerPage=numPerPage, order_by='obs_start DESC', matchesOnly=matchesOnly, is_admin=is_admin)
+            events, totalMatches = fetch_events(
+                None, c, pageNumber=pageNumber, numPerPage=numPerPage, order_by='obs_start DESC',
+                matchesOnly=matchesOnly,
+                matchesOnlyIgnoreArchival=matchesOnlyIgnoreArchival,
+                latestOnly=latestOnly,
+                is_admin=is_admin,
+            )
             if events is None:
                 events = []
             for event in events:
@@ -230,6 +243,8 @@ def make_app():
                 totalMatches=totalMatches,
                 totalPages=(totalMatches + numPerPage - 1) // numPerPage,
                 matchesOnly=matchesOnly,
+                matchesOnlyIgnoreArchival=matchesOnlyIgnoreArchival,
+                latestOnly=latestOnly,
                 username=request.user.get('username'),
                 is_admin=is_admin,
             )

@@ -137,12 +137,16 @@ def fetch_events(event_names: list, c: sqlite3.Cursor, **kwargs) -> Tuple[list, 
         parameters.append('done')
         parameters.append(datetime.utcnow() - timedelta(hours=24))
         parameters.append(datetime.utcnow() - timedelta(minutes=10))
+    if kwargs.get('latestOnly') == True:
+        # latest only means that for all events with the same name, we only return the latest one (highest version)
+        conditions.append(' version = (SELECT MAX(version) FROM events AS e WHERE e.name = events.name)')
+        # this one above doesn't work, it seems like it just keeps the events with the highest version in the table
     if kwargs.get('matchesOnly') == True:
         #  here we only return events if they have matches in the xmatches table
-        if kwargs.get('is_admin') == False:
+        if kwargs.get('matchesOnlyIgnoreArchival') == True:
             # if the user querying isn't an admin:
             # don't account for archival_xmatches
-            conditions.append(' id IN (SELECT event_id FROM xmatches where event_id = events.id GROUP BY event_id) ')
+            conditions.append(' id IN (SELECT event_id FROM xmatches where event_id = events.id GROUP BY event_id)')
         else:
             conditions.append('(id IN (SELECT event_id FROM xmatches where event_id = events.id GROUP BY event_id) OR id IN (SELECT event_id FROM archival_xmatches where event_id = events.id GROUP BY event_id))')
     
