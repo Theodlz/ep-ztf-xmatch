@@ -139,7 +139,12 @@ def fetch_events(event_names: list, c: sqlite3.Cursor, **kwargs) -> Tuple[list, 
         parameters.append(datetime.utcnow() - timedelta(minutes=10))
     if kwargs.get('matchesOnly') == True:
         #  here we only return events if they have matches in the xmatches table
-        conditions.append('(id IN (SELECT event_id FROM xmatches where event_id = events.id GROUP BY event_id) OR id IN (SELECT event_id FROM archival_xmatches where event_id = events.id GROUP BY event_id))')
+        if kwargs.get('is_admin') == False:
+            # if the user querying isn't an admin:
+            # don't account for archival_xmatches
+            conditions.append(' id IN (SELECT event_id FROM xmatches where event_id = events.id GROUP BY event_id) ')
+        else:
+            conditions.append('(id IN (SELECT event_id FROM xmatches where event_id = events.id GROUP BY event_id) OR id IN (SELECT event_id FROM archival_xmatches where event_id = events.id GROUP BY event_id))')
     
     if len(conditions) > 0:
         query += ' WHERE' + ' AND'.join(conditions)

@@ -11,7 +11,7 @@ monkey.patch_all()
 from astropy.time import Time
 from flask import Flask, request, render_template, redirect
 
-from db import is_db_initialized, get_db_connection, ALLOWED_EVENT_COLUMNS, insert_events, fetch_event, fetch_events, fetch_xmatches, fetch_archival_xmatches
+from db import is_db_initialized, get_db_connection, fetch_event, fetch_events, fetch_xmatches, fetch_archival_xmatches
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__)) + '/data'
 
@@ -50,100 +50,6 @@ def make_app():
     @app.route('/api/ping', methods=['GET'])
     def ping():
         return 'pong'
-
-    def event_post(event_name=None):
-        data = request.data
-
-        events = None
-        try:
-            events = json.loads(data)
-        except Exception as e:
-            return {
-                'message': 'Failed to read data',
-            }, 400
-
-        # check that they each have the allowed columns we need
-        for event in events:
-            if not all([col in event for col in ALLOWED_EVENT_COLUMNS]):
-                return {
-                    'message': 'One or more events are missing required columns',
-                }, 400
-        
-        with get_db_connection() as conn:
-            c = conn.cursor()
-            try:
-                insert_events(events, c)
-                conn.commit()
-            except Exception as e:
-                traceback.print_exc()
-                return {
-                    'message': f'Failed to insert events: {e}',
-                }, 400
-            
-        return {
-            'message': 'Events inserted successfully',
-        }
-    
-    def event_get(event_name=None):
-        with get_db_connection() as conn:
-            c = conn.cursor()
-            if event_name is None:
-                events, count = fetch_events(None, c)
-                return {
-                    'message': 'Events found',
-                    'data': {
-                        'events': events,
-                        'totalMatches': count,
-                    }
-                }
-
-            event = fetch_event(event_name, c)
-        
-            if event is None:
-                return {
-                    'message': 'Event not found',
-                }, 404
-            
-            # if the status isn't done, return the status
-            if event['query_status'] != 'done':
-                return {
-                    'message': f'Event is still being processed: {event["query_status"]}',
-                }, 202
-            else:
-                results = fetch_xmatches([event['id']], c)
-                event['xmatches'] = results
-        
-            return {
-                'message': 'Event found',
-                'data': {
-                    'event': event,
-                }
-            }
-        
-    # the route above doesn't work, as the event_name should be only for the GET method
-    # i.e. it needs to be optional for the POST method
-    @app.route('/api/events/<event_name>', methods=['GET'])
-    @app.route('/api/events', methods=['GET', 'POST'])
-    @auth()
-    def event(event_name=None):
-        if request.method == 'POST':
-            return event_post(event_name)
-        else:
-            return event_get(event_name)
-        
-    @app.route('/api/xmatches', methods=['GET'])
-    @auth()
-    def xmatches():
-        with get_db_connection() as conn:
-            c = conn.cursor()
-            # we return all the xmatches
-            xmatches = c.execute('SELECT * FROM xmatches').fetchall()
-        return {
-            'message': 'Xmatches found',
-            'data': {
-                'xmatches': xmatches,
-            }
-        }
     
     @app.route('/api/users', methods=['GET', 'POST'])
     @auth()
@@ -224,7 +130,27 @@ def make_app():
                 }
             }
             
-    
+    @app.route('/api/reprocess', methods=['GET', 'POST'])
+    @auth()
+    def reprocess():
+        # admin only, we drop all the entries in the xmatches and archival_xmatches tables and reprocess all the events
+        if request.user.get('type') != 'admin':
+            return {
+                'message': 'Unauthorized, must be an admin user',
+            }, 401
+        if request.method == 'POST':
+            # 1. remove all the entries in the xmatches and archival_xmatches tables
+            # 2. set the status of all the events to 'pending'
+            with get_db_connection() as conn:
+                c = conn.cursor()
+                c.execute('DELETE FROM xmatches')
+                c.execute('DELETE FROM archival_xmatches')
+                c.execute('UPDATE events SET query_status = "pending"')
+                conn.commit()
+            return {
+                'message': 'Reprocessing started',
+            }
+
     # we want an auth frontend decorator, so that if you are not authenticated, you are redirected to the login page
     def auth_frontend():
         def _auth_frontend(f):
@@ -259,6 +185,8 @@ def make_app():
     @app.route('/', methods=['GET'])
     @auth_frontend()
     def events_page():
+        is_admin= request.user.get('type') == 'admin'
+
         # check if we got in query parameters:
         # - pageNumber (starting at 1, default 1)
         # - numPerPage (default 100, min 1, max 1000)
@@ -277,14 +205,16 @@ def make_app():
         now = Time.now().jd
         with get_db_connection() as conn:
             c = conn.cursor()
-            events, totalMatches = fetch_events(None, c, pageNumber=pageNumber, numPerPage=numPerPage, order_by='obs_start DESC', matchesOnly=matchesOnly)
+            events, totalMatches = fetch_events(None, c, pageNumber=pageNumber, numPerPage=numPerPage, order_by='obs_start DESC', matchesOnly=matchesOnly, is_admin=is_admin)
             if events is None:
                 events = []
             for event in events:
                 count = c.execute('SELECT COUNT(*) FROM xmatches WHERE event_id = ?', (event['id'],)).fetchone()['COUNT(*)']
                 event['num_xmatches'] = count
-                count = c.execute('SELECT COUNT(*) FROM archival_xmatches WHERE event_id = ?', (event['id'],)).fetchone()['COUNT(*)']
-                event['num_archival_xmatches'] = count
+                if is_admin:
+                    count = c.execute('SELECT COUNT(*) FROM archival_xmatches WHERE event_id = ?', (event['id'],)).fetchone()['COUNT(*)']
+                    event['num_archival_xmatches'] = count
+                
                 dt = (now - Time(event['obs_start']).jd) * 24
                 if dt < 24:
                     event['delta_t'] = f"<{int(dt + 0.5)}h"
@@ -301,7 +231,7 @@ def make_app():
                 totalPages=(totalMatches + numPerPage - 1) // numPerPage,
                 matchesOnly=matchesOnly,
                 username=request.user.get('username'),
-                is_admin=request.user.get('type') == 'admin',
+                is_admin=is_admin,
             )
             return template_rendered
         except Exception as e:
@@ -316,6 +246,9 @@ def make_app():
             return {
                 'message': 'Event name is required',
             }, 400
+        
+        is_admin = request.user.get('type') == 'admin'
+
         with get_db_connection() as conn:
             c = conn.cursor()
             event = fetch_event(event_name, c)
@@ -339,18 +272,20 @@ def make_app():
                     xmatch['delta_t'] = f"{int(dt + 0.5)}d"
 
             # same with archival xmatches
-            archival_xmatches = fetch_archival_xmatches([event['id']], c)
-            for xmatch in archival_xmatches:
-                dt = float(xmatch['delta_t'])
-                # if it's less than 1 hour, show in minutes
-                if abs(dt) < 1/24:
-                    xmatch['delta_t'] = f"{int(dt * 24 * 60 + 0.5)}m"
-                # if it's less than 1 day, show in hours
-                elif abs(dt) < 1:
-                    xmatch['delta_t'] = f"{int(dt * 24 + 0.5)}h"
-                # else show in days
-                else:
-                    xmatch['delta_t'] = f"{int(dt + 0.5)}d"
+            archival_xmatches = []
+            if is_admin:
+                archival_xmatches = fetch_archival_xmatches([event['id']], c)
+                for xmatch in archival_xmatches:
+                    dt = float(xmatch['delta_t'])
+                    # if it's less than 1 hour, show in minutes
+                    if abs(dt) < 1/24:
+                        xmatch['delta_t'] = f"{int(dt * 24 * 60 + 0.5)}m"
+                    # if it's less than 1 day, show in hours
+                    elif abs(dt) < 1:
+                        xmatch['delta_t'] = f"{int(dt * 24 + 0.5)}h"
+                    # else show in days
+                    else:
+                        xmatch['delta_t'] = f"{int(dt + 0.5)}d"
 
             return render_template(
                 'event.html',
@@ -358,7 +293,7 @@ def make_app():
                 xmatches=xmatches,
                 archival_xmatches=archival_xmatches,
                 username=request.user.get('username'),
-                is_admin=request.user.get('type') == 'admin',
+                is_admin=is_admin,
             )
         
     @app.route('/login', methods=['POST'])

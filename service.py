@@ -21,6 +21,12 @@ EP_BASE_URL = "https://ep.bao.ac.cn/ep"
 EP_TOKEN_URL = f"{EP_BASE_URL}/api/get_tokenp"
 EP_EVENTS_URL = f"{EP_BASE_URL}/data_center/api/unverified_candidates"
 
+EP_EXPTIME_DEFAULT = 20.0
+EP_EXPTIME = float(os.getenv('EP_EXPOSURE_TIME', EP_EXPTIME_DEFAULT))
+
+# from minutes to jd
+EP_HALF_EXPTIME_JD = ((EP_EXPTIME / 2) / (60 * 24))
+
 EP_EMAIL = os.getenv('EP_EMAIL')
 EP_PASSWORD = os.getenv('EP_PASSWORD')
 
@@ -69,7 +75,7 @@ def cone_searches(events: list, k: Kowalski):
         jd = Time(obs_start).jd # jd
 
         # we get the midpoint of the 30 minute window
-        jd = jd + (15 / (60 * 24))
+        jd = jd + EP_HALF_EXPTIME_JD
         
         jd_start = jd - DELTA_T
         jd_end = jd + DELTA_T
@@ -179,7 +185,7 @@ def cone_searches(events: list, k: Kowalski):
                 event = [e for e in events if e['name'] == event_name][0]
                 obs_start = event["obs_start"] # datetime string
                 jd = Time(obs_start).jd # jd
-                jd = jd + (15 / (60 * 24))
+                jd = jd + EP_HALF_EXPTIME_JD
 
                 match['delta_t'] = match['jd'] - jd
                 match['distance_arcmin'] = great_circle_distance(
@@ -209,10 +215,10 @@ def archival_cone_searches(events, k: Kowalski):
         jd = Time(obs_start).jd # jd
 
         # we get the midpoint of the 30 minute window
-        jd = jd + (15 / (60 * 24))
+        jd = jd + EP_HALF_EXPTIME_JD
         
-        jd_start = jd - DELTA_T_ARCHIVAL
-        jd_end = jd
+        jd_start = jd - DELTA_T - DELTA_T_ARCHIVAL
+        jd_end = jd - DELTA_T # up to when we query the non-archival data
 
         # convert the radius from degrees to radians by dividing by 180/pi
         ra, dec = event["ra"], event["dec"]
@@ -355,7 +361,7 @@ def archival_cone_searches(events, k: Kowalski):
         event = [e for e in events if e['name'] == event_name][0]
         obs_start = event["obs_start"] # datetime string
         jd = Time(obs_start).jd # jd
-        jd = jd + (15 / (60 * 24))
+        jd = jd + EP_HALF_EXPTIME_JD
         # to each matches, add a delta_t field
         # and the distance to the event position in arcsec
         for match in matches:

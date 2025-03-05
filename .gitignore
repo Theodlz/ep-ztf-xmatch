@@ -6,3 +6,4 @@ __pycache__
 .python-version
 uv.lock
 docker-compose.yaml
+.DS_Store

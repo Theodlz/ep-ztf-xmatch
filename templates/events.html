@@ -25,7 +25,7 @@
                 <th style="text-align:center;padding:5px"> dec</th>
                 <th style="text-align:center;padding:5px"> err<sub>(arcmin)</sub></th>
                 <th style="text-align:center;padding:5px"> time</th>
-                <th style="text-align:center;padding:5px"> δ<sub>t (hours)</sub></th>
+                <th style="text-align:center;padding:5px"> δ<sub>t</sub></th>
                 <th style="text-align:center;padding:5px"> exposure</th>
                 <th style="text-align:center;padding:5px"> flux</th>
                 <th style="text-align:center;padding:5px"> src ID</th>
@@ -35,7 +35,9 @@
                 <th style="text-align:center;padding:5px"> net rate</th>
                 <th style="text-align:center;padding:5px"> xmatch status</th>
                 <th style="text-align:center;padding:5px"> xmatches</th>
-                <th style="text-align:center;padding:5px"> archival xmatches</th>
+                {% if is_admin %}
+                    <th style="text-align:center;padding:5px"> archival xmatches</th>
+                {% endif %}
             </tr>
 
             {% for event in events %}
@@ -55,7 +57,9 @@
                     <td style="text-align:center;padding:5px">{{event['net_rate']|round(4)}}</td>
                     <td style="text-align:center;padding:5px;background-color: {% if event['query_status'] == 'processing' or event['query_status'] == 'pending' %}#FFD700{% elif event['query_status']|slice(0,6) == 'failed' %}#FF6347{% endif %}">{{event['query_status']}}</td>
                     <td style="text-align:center;padding:5px;background-color: {% if event['num_xmatches'] > 0 %}#50C878{% endif %}">{{event['num_xmatches']}}</td>
-                    <td style="text-align:center;padding:5px;">{{event['num_archival_xmatches']}}</td>
+                    {% if is_admin %}
+                        <td style="text-align:center;padding:5px;">{{event['num_archival_xmatches']}}</td>
+                    {% endif %}
                 </tr>
             {% endfor %}
       </table>
