@@ -13,5 +13,6 @@ services:
       - API_PASSWORD=admin
       - EP_EMAIL=<your-email>
       - EP_PASSWORD=<your-password>
+      - EP_EXPTIME_DEFAULT=20.0 # in minutes, used to compute the mid-point of the exposure
       - DELTA_T=1.0
-      - DELTA_T_ARCHIVAL=30.0
+      - DELTA_T_ARCHIVAL=31.0

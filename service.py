@@ -21,7 +21,7 @@ EP_BASE_URL = "https://ep.bao.ac.cn/ep"
 EP_TOKEN_URL = f"{EP_BASE_URL}/api/get_tokenp"
 EP_EVENTS_URL = f"{EP_BASE_URL}/data_center/api/unverified_candidates"
 
-EP_EXPTIME_DEFAULT = 20.0
+EP_EXPTIME_DEFAULT = 20.0 # in minutes
 EP_EXPTIME = float(os.getenv('EP_EXPOSURE_TIME', EP_EXPTIME_DEFAULT))
 
 # from minutes to jd
