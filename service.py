@@ -23,8 +23,7 @@ EP_EVENTS_URL = f"{EP_BASE_URL}/data_center/api/unverified_candidates"
 
 EP_EXPTIME_DEFAULT = 20.0 # in minutes
 EP_EXPTIME = float(os.getenv('EP_EXPOSURE_TIME', EP_EXPTIME_DEFAULT))
-
-# from minutes to jd
+# from minutes to jd, and then divide by 2
 EP_HALF_EXPTIME_JD = ((EP_EXPTIME / 2) / (60 * 24))
 
 EP_EMAIL = os.getenv('EP_EMAIL')

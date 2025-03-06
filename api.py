@@ -15,6 +15,11 @@ from db import is_db_initialized, get_db_connection, fetch_event, fetch_events, 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__)) + '/data'
 
+MAX_DT_XMATCH_NONADMIN = 60.0 # in minutes
+MAX_DT_XMATCH_NONADMIN = float(os.getenv('MAX_DT_XMATCH_NONADMIN', MAX_DT_XMATCH_NONADMIN))
+# convert from minutes to days
+MAX_DT_XMATCH_NONADMIN /= 60 * 24
+
 # only allow alphanumeric characters and underscores in the username and password
 username_regex = re.compile(r'^[a-zA-Z0-9_]+$')
 email_regex = re.compile(r'^[a-zA-Z0-9_]+@[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$')
@@ -216,17 +221,23 @@ def make_app():
                 None, c, pageNumber=pageNumber, numPerPage=numPerPage, order_by='obs_start DESC',
                 matchesOnly=matchesOnly,
                 matchesOnlyIgnoreArchival=matchesOnlyIgnoreArchival,
+                matchesMaxDeltaT=MAX_DT_XMATCH_NONADMIN if not is_admin else None,
                 latestOnly=latestOnly,
                 is_admin=is_admin,
             )
             if events is None:
                 events = []
             for event in events:
-                count = c.execute('SELECT COUNT(*) FROM xmatches WHERE event_id = ?', (event['id'],)).fetchone()['COUNT(*)']
-                event['num_xmatches'] = count
                 if is_admin:
+                    count = c.execute('SELECT COUNT(*) FROM xmatches WHERE event_id = ?', (event['id'],)).fetchone()['COUNT(*)']
+                    event['num_xmatches'] = count
                     count = c.execute('SELECT COUNT(*) FROM archival_xmatches WHERE event_id = ?', (event['id'],)).fetchone()['COUNT(*)']
                     event['num_archival_xmatches'] = count
+                else:
+                    # for non admins we don't show archival xmatches
+                    # and we limit to matches where the delta T is <= MAX_DT_XMATCH_NONADMIN
+                    count = c.execute('SELECT COUNT(*) FROM xmatches WHERE event_id = ? AND abs(delta_t) <= ?', (event['id'], MAX_DT_XMATCH_NONADMIN)).fetchone()['COUNT(*)']
+                    event['num_xmatches'] = count
                 
                 dt = (now - Time(event['obs_start']).jd) * 24
                 if dt < 24:
@@ -292,7 +303,7 @@ def make_app():
             versions = c.execute('SELECT version FROM events WHERE name = ? ORDER BY version DESC', (event_name,)).fetchall()
             versions = [v['version'] for v in versions]
             
-            xmatches = fetch_xmatches([event['id']], c)
+            xmatches = fetch_xmatches([event['id']], c, maxDeltaT=MAX_DT_XMATCH_NONADMIN if not is_admin else None)
             for xmatch in xmatches:
                 dt = float(xmatch['delta_t'])
                 # if it's less than 1 hour, show in minutes

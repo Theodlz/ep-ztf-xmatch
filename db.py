@@ -143,12 +143,20 @@ def fetch_events(event_names: list, c: sqlite3.Cursor, **kwargs) -> Tuple[list, 
         # this one above doesn't work, it seems like it just keeps the events with the highest version in the table
     if kwargs.get('matchesOnly') == True:
         #  here we only return events if they have matches in the xmatches table
-        if kwargs.get('matchesOnlyIgnoreArchival') == True:
-            # if the user querying isn't an admin:
-            # don't account for archival_xmatches
-            conditions.append(' id IN (SELECT event_id FROM xmatches where event_id = events.id GROUP BY event_id)')
+        or_conditions = []
+        if isinstance(kwargs.get('matchesMaxDeltaT'), int | float) and kwargs.get('matchesMaxDeltaT') > 0:
+            or_conditions.append('id IN (SELECT event_id FROM xmatches where event_id = events.id and abs(xmatches.delta_t) <= ? GROUP BY event_id)')
+            parameters.append(kwargs.get('matchesMaxDeltaT'))
         else:
-            conditions.append('(id IN (SELECT event_id FROM xmatches where event_id = events.id GROUP BY event_id) OR id IN (SELECT event_id FROM archival_xmatches where event_id = events.id GROUP BY event_id))')
+            or_conditions.append('id IN (SELECT event_id FROM xmatches where event_id = events.id GROUP BY event_id)')
+
+        if kwargs.get('matchesOnlyIgnoreArchival', False) == False:
+            or_conditions.append('id IN (SELECT event_id FROM archival_xmatches where event_id = events.id GROUP BY event_id)')
+
+        if len(or_conditions) > 1:
+            conditions.append(' (' + ' OR '.join(or_conditions) + ') ')
+        else:
+            conditions.append(' ' + or_conditions[0] + ' ')
     
     if len(conditions) > 0:
         query += ' WHERE' + ' AND'.join(conditions)
@@ -183,13 +191,21 @@ def fetch_event_by_id(event_id: int, c: sqlite3.Cursor) -> list:
     c.execute(query, (event_id,))
     return c.fetchone()
 
-def fetch_xmatches(event_ids: list, c: sqlite3.Cursor) -> list:
-    event_ids = [str(event_id) for event_id in event_ids]
-    if event_ids is None:
-        c.execute('SELECT * FROM xmatches order by id')
-    else:
-        c.execute(f'SELECT * FROM xmatches WHERE event_id IN ({",".join(event_ids)}) order by jd desc, object_id desc')
+def fetch_xmatches(event_ids: list, c: sqlite3.Cursor, **kwargs) -> list:
+    if len(event_ids) == 0:
+        raise ValueError("No event IDs provided.")
 
+    query = 'SELECT * FROM xmatches'
+    conditions = [' event_id IN ({}) '.format(','.join('?'*len(event_ids)))]
+    parameters = [event_id for event_id in event_ids]
+    if isinstance(kwargs.get('maxDeltaT'), int | float) and kwargs.get('maxDeltaT') > 0:
+        conditions.append(' abs(delta_t) <= ? ')
+        parameters.append(kwargs.get('maxDeltaT'))
+
+    query += ' WHERE' + ' AND'.join(conditions)
+    query += ' ORDER BY jd DESC, object_id DESC'
+
+    c.execute(query, tuple(parameters))
     return c.fetchall()
 
 def fetch_archival_xmatches(event_ids: list, c: sqlite3.Cursor) -> list:
