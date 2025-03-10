@@ -29,7 +29,7 @@
             <th style="text-align:center;padding:5px"> dec</th>
             <th style="text-align:center;padding:5px"> err<sub>(arcmin)</sub></th>
             <th style="text-align:center;padding:5px"> utc</th>
-            <th style="text-align:center;padding:5px"> jd</th>
+            <th style="text-align:center;padding:5px"> mjd</th>
             <th style="text-align:center;padding:5px"> exposure</th>
             <th style="text-align:center;padding:5px"> flux</th>
             <th style="text-align:center;padding:5px"> src ID</th>
@@ -48,7 +48,7 @@
             <td style="text-align:center;padding:5px">{{event['dec']|round(4)}}</td>
             <td style="text-align:center;padding:5px">{{(event['pos_err']*60)|round(2)}}</td>
             <td style="text-align:center;padding:5px">{{event['obs_start']}}</td>
-            <td style="text-align:center;padding:5px">{{event['obs_start_jd']|round(4)}}</td>
+            <td style="text-align:center;padding:5px">{{(event['obs_start_jd'] - 2400000.5)|round(4)}}</td>
             <td style="text-align:center;padding:5px">{{event['exp_time']|int}}</td>
             <td style="text-align:center;padding:5px">{{event['flux']}}</td>
             <td style="text-align:center;padding:5px">{{event['src_id']}}</td>
@@ -79,7 +79,7 @@
                     <th style="text-align:center;padding:5px"> mag</th>
                     <th style="text-align:center;padding:5px"> magerr</th>
                     <th style="text-align:center;padding:5px"> utc</th>
-                    <th style="text-align:center;padding:5px"> jd</th>
+                    <th style="text-align:center;padding:5px"> mjd</th>
                     <th style="text-align:center;padding:5px"> fid</th>
                     <th style="text-align:center;padding:5px"> drb</th>
                     <th style="text-align:center;padding:5px"> age</th>
@@ -103,7 +103,7 @@
                         <td style="text-align:center;padding:5px">{{xmatch['magpsf']|round(4)}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['sigmapsf']|round(4)}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['utc']}}</td>
-                        <td style="text-align:center;padding:5px">{{xmatch['jd']|round(4)}}</td>
+                        <td style="text-align:center;padding:5px">{{(xmatch['jd'] - 2400000.5)|round(4)}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['fid']}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['drb']|round(2)}}</td>
                         
@@ -157,7 +157,7 @@
                         <th style="text-align:center;padding:5px"> mag</th>
                         <th style="text-align:center;padding:5px"> magerr</th>
                         <th style="text-align:center;padding:5px"> utc</th>
-                        <th style="text-align:center;padding:5px"> jd</th>
+                        <th style="text-align:center;padding:5px"> mjd</th>
                         <th style="text-align:center;padding:5px"> fid</th>
                         <th style="text-align:center;padding:5px"> drb</th>
                         <th style="text-align:center;padding:5px"> age</th>
@@ -179,7 +179,7 @@
                             <td style="text-align:center;padding:5px">{{xmatch['last_detected_magpsf']|round(4)}}</td>
                             <td style="text-align:center;padding:5px">{{xmatch['last_detected_sigmapsf']|round(4)}}</td>
                             <td style="text-align:center;padding:5px">{{xmatch['last_detected_utc']}}</td>
-                            <td style="text-align:center;padding:5px">{{xmatch['last_detected_jd']|round(4)}}</td>
+                            <td style="text-align:center;padding:5px">{{(xmatch['last_detected_jd'] - 2400000.5)|round(4)}}</td>
                             <td style="text-align:center;padding:5px">{{xmatch['last_detected_fid']}}</td>
                             <td style="text-align:center;padding:5px">{{xmatch['last_detected_drb']|round(2)}}</td>
 

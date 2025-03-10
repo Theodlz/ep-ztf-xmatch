@@ -259,7 +259,8 @@ def make_app():
                 'message': 'Invalid query parameters',
             }, 400
         
-        if not is_admin: # if the user is NOT an admin, always ignore archival
+        if not is_admin: # if the user is NOT an admin, always ignore events without xmatches
+            matchesOnly = True
             matchesOnlyIgnoreArchival = True
         
         now = Time.now().jd

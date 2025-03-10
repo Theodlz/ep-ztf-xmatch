@@ -20,11 +20,11 @@
             <label for="latestOnly">Only latest version</label>
         </div>
         <div style="display: flex; justify-content: right; gap: 5px;">
-            <div>
-            <input type="checkbox" id="matchesOnly" name="matchesOnly" {% if matchesOnly %}checked{% endif %}>
-            <label for="matchesOnly">Only with xmatches</label>
-            </div>
             {% if is_admin %}
+                <div>
+                    <input type="checkbox" id="matchesOnly" name="matchesOnly" {% if matchesOnly %}checked{% endif %}>
+                    <label for="matchesOnly">Only with xmatches</label>
+                </div>
                 <div style="display: {% if matchesOnly %}block{% else %}none{% endif %};">
                     (
                     <input type="checkbox" id="matchesOnlyIgnoreArchival" name="matchesOnlyIgnoreArchival" {% if matchesOnlyIgnoreArchival %}checked{% endif %}>
@@ -101,16 +101,12 @@
                 </form>
                 <span>{{(pageNumber-1)*numPerPage+1}}-{{[pageNumber*numPerPage, totalMatches] | min}} of {{totalMatches}}</span>
                 <div style="display: flex; gap: 14px;">
-                    {% if pageNumber > 1 %}
-                        <a href="/?pageNumber={{pageNumber-1}}&numPerPage={{numPerPage}}&matchesOnly={{matchesOnly}}">&#60;</a>
-                    {% else %}
-                        <span>&#60;</span>
-                    {% endif %}
-                    {% if pageNumber < totalPages %}
-                        <a href="/?pageNumber={{pageNumber+1}}&numPerPage={{numPerPage}}&matchesOnly={{matchesOnly}}">&#62;</a>
-                    {% else %}
-                        <span>&#62;</span>
-                    {% endif %}
+                    <span id="prevPage" style="color: {% if pageNumber > 1 %}blue{% else %}gray{% endif %}">
+                        &#60;
+                    </span>
+                    <span id="nextPage" style="color: {% if pageNumber < totalPages %}blue{% else %}gray{% endif %}">
+                        &#62;
+                    </span>
                 </div>
             </div>
 
@@ -124,9 +120,8 @@
                     }
                 {% else %}
                     function applyFilters(pageNumber, numPerPage) {
-                        const matchesOnly = document.getElementById('matchesOnly').checked;
                         const latestOnly = document.getElementById('latestOnly').checked;
-                        return `/?pageNumber=${pageNumber}&numPerPage=${numPerPage}&matchesOnly=${matchesOnly}&latestOnly=${latestOnly}`;
+                        return `/?pageNumber=${pageNumber}&numPerPage=${numPerPage}&latestOnly=${latestOnly}`;
                     }
                 {% endif %}
                 document.getElementById('pageNumber').onchange = function() {
@@ -140,16 +135,27 @@
                         window.location.href = applyFilters({{pageNumber}}, this.value);
                     }
                 };
-                document.getElementById('matchesOnly').onchange = function() {
-                    window.location.href = applyFilters({{pageNumber}}, {{numPerPage}});
-                };
                 {% if is_admin %}
+                    document.getElementById('matchesOnly').onchange = function() {
+                        window.location.href = applyFilters({{pageNumber}}, {{numPerPage}});
+                    };
                     document.getElementById('matchesOnlyIgnoreArchival').onchange = function() {
                         window.location.href = applyFilters({{pageNumber}}, {{numPerPage}});
                     };
                 {% endif %}
                 document.getElementById('latestOnly').onchange = function() {
                     window.location.href = applyFilters({{pageNumber}}, {{numPerPage}});
+                };
+
+                document.getElementById('prevPage').onclick = function() {
+                    if ({{pageNumber}} > 1) {
+                        window.location.href = applyFilters({{pageNumber}}-1, {{numPerPage}});
+                    }
+                };
+                document.getElementById('nextPage').onclick = function() {
+                    if ({{pageNumber}} < {{totalPages}}) {
+                        window.location.href = applyFilters({{pageNumber}}+1, {{numPerPage}});
+                    }
                 };
             </script>
         </div>
