@@ -127,9 +127,31 @@ def migration2():
     conn.close()
     return
 
+# third migration adds the ndethist column to the xmatches and archival_xmatches tables
+def migration3():
+    conn = sqlite3.connect('./data/database.db')
+    c = conn.cursor()
+
+    # add the ndethist column to the xmatches table
+    try:
+        c.execute('ALTER TABLE xmatches ADD COLUMN ndethist INTEGER')
+    except sqlite3.OperationalError:
+        print("xmatches table already has ndethist column.")
+    # add the ndethist column to the archival_xmatches table
+    try:
+        c.execute('ALTER TABLE archival_xmatches ADD COLUMN ndethist INTEGER')
+    except sqlite3.OperationalError:
+        print("archival_xmatches table already has ndethist column.")
+
+    # commit the changes and close the connection
+    conn.commit()
+    conn.close()
+    return
+
 migrations = [
     migration1,
     migration2,
+    migration3,
 ]
 
 def run_migrations():

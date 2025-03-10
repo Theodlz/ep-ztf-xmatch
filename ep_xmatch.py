@@ -243,6 +243,7 @@ def archival_cone_searches(events, k: Kowalski):
                     "object_id": "$objectId",
                     "jd": "$candidate.jd",
                     "jdstarthist": "$candidate.jdstarthist",
+                    "ndethist": "$candidate.ndethist",
                     "ra": "$candidate.ra",
                     "dec": "$candidate.dec",
                     "fid": "$candidate.fid",
@@ -250,7 +251,6 @@ def archival_cone_searches(events, k: Kowalski):
                     "sigmapsf": "$candidate.sigmapsf",
                     "drb": "$candidate.drb",
                     "sgscore": "$candidate.sgscore1",
-                    "ndethist": "$candidate.ndethist"
                 }
             },
             # then sort by jd desc
@@ -269,7 +269,7 @@ def archival_cone_searches(events, k: Kowalski):
                     "last_detected_fid": {"$first": "$fid"},
                     "last_detected_drb": {"$first": "$drb"},
                     "jdstarthist": {"$first": "$jdstarthist"},
-                    "jdstarthist": {"$first": "$ndethist"},
+                    "ndethist": {"$first": "$ndethist"},
                     "sgscore": {"$first": "$sgscore"},
                     "ra": {"$first": "$ra"},
                     "dec": {"$first": "$dec"},

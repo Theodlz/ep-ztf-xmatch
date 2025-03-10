@@ -25,11 +25,11 @@
     <br />
     <table border="1" style='margin-left:auto;margin-right:auto'>
         <tr>
-            <th style="text-align:center;padding:5px"> name</th>
             <th style="text-align:center;padding:5px"> ra</th>
             <th style="text-align:center;padding:5px"> dec</th>
             <th style="text-align:center;padding:5px"> err<sub>(arcmin)</sub></th>
-            <th style="text-align:center;padding:5px"> time</th>
+            <th style="text-align:center;padding:5px"> utc</th>
+            <th style="text-align:center;padding:5px"> jd</th>
             <th style="text-align:center;padding:5px"> exposure</th>
             <th style="text-align:center;padding:5px"> flux</th>
             <th style="text-align:center;padding:5px"> src ID</th>
@@ -44,11 +44,11 @@
     
 
         <tr>
-            <td style="text-align:center;padding:5px">{{event['name']}}</td>
             <td style="text-align:center;padding:5px">{{event['ra']|round(4)}}</td>
             <td style="text-align:center;padding:5px">{{event['dec']|round(4)}}</td>
             <td style="text-align:center;padding:5px">{{(event['pos_err']*60)|round(2)}}</td>
             <td style="text-align:center;padding:5px">{{event['obs_start']}}</td>
+            <td style="text-align:center;padding:5px">{{event['obs_start_jd']|round(4)}}</td>
             <td style="text-align:center;padding:5px">{{event['exp_time']|int}}</td>
             <td style="text-align:center;padding:5px">{{event['flux']}}</td>
             <td style="text-align:center;padding:5px">{{event['src_id']}}</td>
@@ -78,11 +78,13 @@
                     <th style="text-align:center;padding:5px"> dec</th>
                     <th style="text-align:center;padding:5px"> mag</th>
                     <th style="text-align:center;padding:5px"> magerr</th>
+                    <th style="text-align:center;padding:5px"> utc</th>
                     <th style="text-align:center;padding:5px"> jd</th>
                     <th style="text-align:center;padding:5px"> fid</th>
                     <th style="text-align:center;padding:5px"> drb</th>
                     <th style="text-align:center;padding:5px"> age</th>
                     <th style="text-align:center;padding:5px"> sgscore</th>
+                    <th style="text-align:center;padding:5px"> ndets</th>
                     <th style="text-align:center;padding:5px"> δ<sub>t</sub></th>
                     <th style="text-align:center;padding:5px"> δ<sub> d (arcmin)</sub></th>
                     <th style="text-align:center;padding:5px"> δ<sub> d/err</sub></th>
@@ -100,20 +102,29 @@
                         <td style="text-align:center;padding:5px">{{xmatch['dec']|round(4)}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['magpsf']|round(4)}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['sigmapsf']|round(4)}}</td>
+                        <td style="text-align:center;padding:5px">{{xmatch['utc']}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['jd']|round(4)}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['fid']}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['drb']|round(2)}}</td>
-                        <!-- check if age is None -->
+                        
                         {% if xmatch['age'] is not none %}
                             <td style="text-align:center;padding:5px">{{xmatch['age']|round(2)}}</td>
                         {% else %}
                             <td style="text-align:center;padding:5px">--</td>
                         {% endif %}
+
                         {% if xmatch['sgscore'] is not none %}
                             <td style="text-align:center;padding:5px">{{xmatch['sgscore']|round(2)}}</td>
                         {% else %}
                             <td style="text-align:center;padding:5px">--</td>
                         {% endif %}
+
+                        {% if xmatch['ndethist'] is not none %}
+                            <td style="text-align:center;padding:5px">{{xmatch['ndethist']}}</td>
+                        {% else %}
+                            <td style="text-align:center;padding:5px">--</td>
+                        {% endif %}
+
                         <td style="text-align:center;padding:5px">{{xmatch['delta_t']}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['distance_arcmin']|round(2)}}</td>
                         <td style="text-align:center;padding:5px">{{xmatch['distance_ratio']|round(2)}}</td>
@@ -145,11 +156,13 @@
                         <th style="text-align:center;padding:5px"> dec</th>
                         <th style="text-align:center;padding:5px"> mag</th>
                         <th style="text-align:center;padding:5px"> magerr</th>
+                        <th style="text-align:center;padding:5px"> utc</th>
                         <th style="text-align:center;padding:5px"> jd</th>
                         <th style="text-align:center;padding:5px"> fid</th>
                         <th style="text-align:center;padding:5px"> drb</th>
                         <th style="text-align:center;padding:5px"> age</th>
                         <th style="text-align:center;padding:5px"> sgscore</th>
+                        <th style="text-align:center;padding:5px"> ndets</th>
                         <th style="text-align:center;padding:5px"> δ<sub>t</sub></th>
                         <th style="text-align:center;padding:5px"> δ<sub> d (arcmin)</sub></th>
                         <th style="text-align:center;padding:5px"> δ<sub> d/err</sub></th>
@@ -165,19 +178,29 @@
                             <td style="text-align:center;padding:5px">{{xmatch['dec']|round(4)}}</td>
                             <td style="text-align:center;padding:5px">{{xmatch['last_detected_magpsf']|round(4)}}</td>
                             <td style="text-align:center;padding:5px">{{xmatch['last_detected_sigmapsf']|round(4)}}</td>
+                            <td style="text-align:center;padding:5px">{{xmatch['last_detected_utc']}}</td>
                             <td style="text-align:center;padding:5px">{{xmatch['last_detected_jd']|round(4)}}</td>
                             <td style="text-align:center;padding:5px">{{xmatch['last_detected_fid']}}</td>
                             <td style="text-align:center;padding:5px">{{xmatch['last_detected_drb']|round(2)}}</td>
+
                             {% if xmatch['last_detected_age'] is not none %}
                                 <td style="text-align:center;padding:5px">{{xmatch['last_detected_age']|round(2)}}</td>
                             {% else %}
                                 <td style="text-align:center;padding:5px">--</td>
                             {% endif %}
+
                             {% if xmatch['sgscore'] is not none %}
                                 <td style="text-align:center;padding:5px">{{xmatch['sgscore']|round(2)}}</td>
                             {% else %}
                                 <td style="text-align:center;padding:5px">--</td>
                             {% endif %}
+
+                            {% if xmatch['ndethist'] is not none %}
+                                <td style="text-align:center;padding:5px">{{xmatch['ndethist']}}</td>
+                            {% else %}
+                                <td style="text-align:center;padding:5px">--</td>
+                            {% endif %}
+
                             <td style="text-align:center;padding:5px">{{xmatch['delta_t']}}</td>
                             <td style="text-align:center;padding:5px">{{xmatch['distance_arcmin']|round(2)}}</td>
                             <td style="text-align:center;padding:5px">{{xmatch['distance_ratio']|round(2)}}</td>

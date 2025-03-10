@@ -348,6 +348,9 @@ def make_app():
                     'message': 'Event not found',
                 }, 404
             
+            # to the event, we add the time in JD
+            event['obs_start_jd'] = Time(event['obs_start']).jd
+            
             versions = c.execute('SELECT version FROM events WHERE name = ? ORDER BY version DESC', (event_name,)).fetchall()
             versions = [v['version'] for v in versions]
             
@@ -373,6 +376,9 @@ def make_app():
                     dt_text = f"-{dt_text}"
                 xmatch['delta_t'] = dt_text
 
+                # we add the time in UTC
+                xmatch['utc'] = Time(xmatch['jd'], format='jd').to_datetime().strftime('%Y-%m-%d %H:%M:%S')
+
             # same with archival xmatches
             archival_xmatches = []
             if is_admin:
@@ -388,6 +394,9 @@ def make_app():
                     # else show in days
                     else:
                         xmatch['delta_t'] = f"{int(dt + 0.5)}d"
+
+                    # we add the time in UTC
+                    xmatch['last_detected_utc'] = Time(xmatch['jd'], format='jd').utc.isot
 
             return render_template(
                 'event.html',
