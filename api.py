@@ -354,15 +354,24 @@ def make_app():
             xmatches = fetch_xmatches([event['id']], c, maxDeltaT=MAX_DT_XMATCH_NONADMIN if not is_admin else None)
             for xmatch in xmatches:
                 dt = float(xmatch['delta_t'])
+                dt_abs = abs(dt)
+                dt_text = None
+                # if it's less than 1 minute, show in seconds
+                if dt_abs < 1/24/60:
+                    dt_text = f"{int(dt_abs * 24 * 60 * 60 + 0.5)}s"
                 # if it's less than 1 hour, show in minutes
-                if abs(dt) < 1/24:
-                    xmatch['delta_t'] = f"{int(dt * 24 * 60 + 0.5)}m"
+                if dt_abs < 1/24:
+                    dt_text = f"{int(dt_abs * 24 * 60 + 0.5)}m"
                 # if it's less than 1 day, show in hours
-                elif abs(dt) < 1:
-                    xmatch['delta_t'] = f"{int(dt * 24 + 0.5)}h"
+                elif dt_abs < 1:
+                    dt_text = f"{int(dt_abs * 24 + 0.5)}h"
                 # else show in days
                 else:
-                    xmatch['delta_t'] = f"{int(dt + 0.5)}d"
+                    dt_text = f"{int(dt_abs + 0.5)}d"
+
+                if dt < 0:
+                    dt_text = f"-{dt_text}"
+                xmatch['delta_t'] = dt_text
 
             # same with archival xmatches
             archival_xmatches = []
