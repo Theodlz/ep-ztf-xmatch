@@ -397,7 +397,7 @@ def make_app():
                         xmatch['delta_t'] = f"{int(dt + 0.5)}d"
 
                     # we add the time in UTC
-                    xmatch['last_detected_utc'] = Time(xmatch['jd'], format='jd').utc.isot
+                    xmatch['last_detected_utc'] = Time(xmatch['last_detected_jd'], format='jd').utc.isot
 
             return render_template(
                 'event.html',
