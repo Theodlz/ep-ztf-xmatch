@@ -18,7 +18,8 @@ RUN sh /uv-installer.sh && rm /uv-installer.sh && \
 COPY ["api.py", \
         "db.py", \
         "migrate.py", \
-        "service.py", \
+        "ep_listener.py", \
+        "ep_xmatch.py", \
         "pyproject.toml", \
         "supervisord.conf", \
         "/app/"]

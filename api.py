@@ -155,6 +155,54 @@ def make_app():
             return {
                 'message': 'Reprocessing started',
             }
+        
+    # add an endpoint where given an event's name and version (defaults to latest), we return the event's details
+    # and associated xmatches
+    # this endpoint should be authenticated
+    @app.route('/api/events/<event_name>', methods=['GET'])
+    @auth()
+    def api_event(event_name=None):
+        is_admin = request.user.get('type') == 'admin'
+        if request.user.get('type') != 'admin':
+            return {
+                'message': 'Unauthorized, must be an admin user',
+            }, 401
+        if event_name is None:
+            return {
+                'message': 'Event name is required',
+            }, 400
+        version = request.args.get('version', None)
+        if version == '':
+            version = None
+        if version is not None:
+            # version should be v + number
+            if not version.startswith('v'):
+                return {
+                    'message': 'Invalid version',
+                }, 400
+            elif not version[1:].isdigit():
+                return {
+                    'message': 'Invalid version',
+                }, 400
+        with get_db_connection() as conn:
+            c = conn.cursor()
+            event = fetch_event(
+                event_name, c,
+                version=version,
+            )
+            if event is None:
+                return {
+                    'message': 'Event not found',
+                }, 404
+            xmatches = fetch_xmatches([event['id']], c, maxDeltaT=MAX_DT_XMATCH_NONADMIN if not is_admin else None)
+            event['xmatches'] = xmatches
+            if is_admin:
+                archival_xmatches = fetch_archival_xmatches([event['id']], c)
+                event['archival_xmatches'] = archival_xmatches
+            return {
+                'message': 'Event found',
+                'data': event,
+            }
 
     # we want an auth frontend decorator, so that if you are not authenticated, you are redirected to the login page
     def auth_frontend():

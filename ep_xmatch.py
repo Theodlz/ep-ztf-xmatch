@@ -2,11 +2,10 @@ import os
 import time
 from astropy.time import Time
 import traceback
-import requests
 import numpy as np
 
 from penquins import Kowalski
-from db import is_db_initialized, get_db_connection, fetch_events, update_event_status, insert_xmatches, remove_xmatches_by_event_id, insert_events, insert_archival_xmatches, ALLOWED_EVENT_COLUMNS
+from db import is_db_initialized, get_db_connection, fetch_events, update_event_status, insert_xmatches, remove_xmatches_by_event_id, insert_archival_xmatches
 
 RADIUS_MULTIPLIER_DEFAULT = 1.0
 RADIUS_MULTIPLIER = float(os.getenv('RADIUS_MULTIPLIER', RADIUS_MULTIPLIER_DEFAULT))
@@ -16,20 +15,6 @@ DELTA_T = float(os.getenv('DELTA_T', DELTA_T_DEFAULT))
 
 DELTA_T_ARCHIVAL = 31.0 # 31 JD (a month) by default
 DELTA_T_ARCHIVAL = float(os.getenv('DELTA_T_ARCHIVAL', DELTA_T_ARCHIVAL))
-
-EP_BASE_URL = "https://ep.bao.ac.cn/ep"
-EP_TOKEN_URL = f"{EP_BASE_URL}/api/get_tokenp"
-EP_EVENTS_URL = f"{EP_BASE_URL}/data_center/api/unverified_candidates"
-
-EP_EXPTIME_DEFAULT = 20.0 # in minutes
-EP_EXPTIME = float(os.getenv('EP_EXPOSURE_TIME', EP_EXPTIME_DEFAULT))
-# from minutes to jd, and then divide by 2
-EP_HALF_EXPTIME_JD = ((EP_EXPTIME / 2) / (60 * 24))
-
-EP_EMAIL = os.getenv('EP_EMAIL')
-EP_PASSWORD = os.getenv('EP_PASSWORD')
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__)) + '/data'
 
 def great_circle_distance(ra1_deg, dec1_deg, ra2_deg, dec2_deg):
     """
@@ -72,9 +57,6 @@ def cone_searches(events: list, k: Kowalski):
         obs_start = event["obs_start"] # datetime string
         # convert to jd
         jd = Time(obs_start).jd # jd
-
-        # we get the midpoint of the 30 minute window
-        jd = jd + EP_HALF_EXPTIME_JD
         
         jd_start = jd - DELTA_T
         jd_end = jd + DELTA_T
@@ -106,19 +88,7 @@ def cone_searches(events: list, k: Kowalski):
                                 "candidate.drb": {
                                     "$gt": 0.5 # remove bogus detections (deep learning)
                                 },
-                                # "candidate.jdstarthist": { # remove old objects
-                                #     "$gte": jd_start - 1,
-                                # },
-                                # "candidate.isdiffpos": { "$in": ["t", "T", "true", "True", True, "1", 1] },
                                 "$and": [
-                                    # { # remove known stellar sources
-                                    #     "$or": [
-                                    #         {"candidate.sgscore1": {"$lt": 0.7}},
-                                    #         {"candidate.distpsnr1": {"$gt": 10}},
-                                    #         {"candidate.distpsnr2": {"$lt": 0}},
-                                    #         {"candidate.distpsnr2": {"$eq": None}},
-                                    #     ]
-                                    # },
                                     { # remove known solar system objects
                                         "$or": [
                                             {
@@ -158,6 +128,7 @@ def cone_searches(events: list, k: Kowalski):
                                 "drb": "$candidate.drb",
                                 "jdstarthist": "$candidate.jdstarthist",
                                 "sgscore": "$candidate.sgscore1",
+                                "ndethist": "$candidate.ndethist"
                             }
                         }
                     }
@@ -184,7 +155,6 @@ def cone_searches(events: list, k: Kowalski):
                 event = [e for e in events if e['name'] == event_name][0]
                 obs_start = event["obs_start"] # datetime string
                 jd = Time(obs_start).jd # jd
-                jd = jd + EP_HALF_EXPTIME_JD
 
                 match['delta_t'] = match['jd'] - jd
                 match['distance_arcmin'] = great_circle_distance(
@@ -214,7 +184,6 @@ def archival_cone_searches(events, k: Kowalski):
         jd = Time(obs_start).jd # jd
 
         # we get the midpoint of the 30 minute window
-        jd = jd + EP_HALF_EXPTIME_JD
         
         jd_start = jd - DELTA_T - DELTA_T_ARCHIVAL
         jd_end = jd - DELTA_T # up to when we query the non-archival data
@@ -281,6 +250,7 @@ def archival_cone_searches(events, k: Kowalski):
                     "sigmapsf": "$candidate.sigmapsf",
                     "drb": "$candidate.drb",
                     "sgscore": "$candidate.sgscore1",
+                    "ndethist": "$candidate.ndethist"
                 }
             },
             # then sort by jd desc
@@ -299,6 +269,7 @@ def archival_cone_searches(events, k: Kowalski):
                     "last_detected_fid": {"$first": "$fid"},
                     "last_detected_drb": {"$first": "$drb"},
                     "jdstarthist": {"$first": "$jdstarthist"},
+                    "jdstarthist": {"$first": "$ndethist"},
                     "sgscore": {"$first": "$sgscore"},
                     "ra": {"$first": "$ra"},
                     "dec": {"$first": "$dec"},
@@ -323,6 +294,7 @@ def archival_cone_searches(events, k: Kowalski):
                         "last_detected_fid": "$last_detected_fid",
                         "last_detected_drb": "$last_detected_drb",
                         "jdstarthist": "$jdstarthist",
+                        "ndethist": "$ndethist",
                         "sgscore": "$sgscore",
                         "ra": "$ra",
                         "dec": "$dec",
@@ -360,7 +332,6 @@ def archival_cone_searches(events, k: Kowalski):
         event = [e for e in events if e['name'] == event_name][0]
         obs_start = event["obs_start"] # datetime string
         jd = Time(obs_start).jd # jd
-        jd = jd + EP_HALF_EXPTIME_JD
         # to each matches, add a delta_t field
         # and the distance to the event position in arcsec
         for match in matches:
@@ -378,66 +349,9 @@ def archival_cone_searches(events, k: Kowalski):
 
     return results
 
-
-def get_ep_token():
-    if EP_EMAIL is None or EP_PASSWORD is None:
-        raise ValueError('EP_USERNAME or EP_PASSWORD not set')
-    response = requests.post(
-        url=EP_TOKEN_URL,
-        json={"email": EP_EMAIL, "password": EP_PASSWORD},
-        headers={"Content-Type": "application/json"}
-    )
-    response.raise_for_status()  
-    token = response.json().get("token") 
-    return token
-
-def get_new_events():
-    token = get_ep_token()
-
-    response = requests.get(
-                url=EP_EVENTS_URL,
-                headers={"tdic-token": token},  
-                params={"token": token}
-            )
-    response.raise_for_status()
-    try:
-        events = response.json()
-    except ValueError:
-        events = []
-    return events
-
-def service(k: Kowalski, last_event_fetch: float) -> float:
+def service(k: Kowalski) -> float:
     with get_db_connection() as conn:
         c = conn.cursor()
-
-        # GET NEW EP EVENTS
-        if (
-            last_event_fetch is None or
-            time.time() - last_event_fetch > 5 * 60
-        ):
-            print('Fetching new events...')
-            try:
-                new_events = get_new_events()
-                last_event_fetch = time.time()
-            except Exception as e:
-                traceback.print_exc()
-                print(f'Failed to get new events: {e}')
-                new_events = []
-            # check that they each have the allowed columns we need
-            for event in new_events:
-                missing = [col for col in ALLOWED_EVENT_COLUMNS if col not in event]
-                if missing:
-                    print(event)
-                    raise ValueError('Event does not have all required columns: ' + ', '.join(missing))
-                    
-            if len(new_events) > 0:
-                print(f'Inserting {len(new_events)} events (skips existing ones)')
-                try:
-                    insert_events(new_events, c)
-                    conn.commit()
-                except Exception as e:
-                    traceback.print_exc()
-                    print(f'Failed to insert events: {e}')
             
         # QUERY SOURCES FOR NEW EVENTS
         new_events, _ = fetch_events(None, c, status='pending')
@@ -453,7 +367,7 @@ def service(k: Kowalski, last_event_fetch: float) -> float:
         events = new_events + events_to_reprocess
         if not events:
             print('No events to process')
-            return last_event_fetch
+            return
 
         print(f'Found {len(events)} events to process (including {len(events_to_reprocess)} to reprocess)')
 
@@ -497,8 +411,6 @@ def service(k: Kowalski, last_event_fetch: float) -> float:
 
         conn.commit()
 
-    return last_event_fetch
-
 if __name__ == "__main__":
     protocol = 'https'
     host = 'kowalski.caltech.edu'
@@ -518,12 +430,10 @@ if __name__ == "__main__":
         print('Waiting for database to be initialized...')
         time.sleep(15)
 
-    last_event_fetch = None
-
     print('Starting service...')
     while True:
         try:
-            last_event_fetch = service(k, last_event_fetch)
+            service(k)
         except Exception as e:
             traceback.print_exc()
             print(f'Failed to run service: {e}')
