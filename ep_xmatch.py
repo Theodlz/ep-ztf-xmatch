@@ -128,6 +128,9 @@ def cone_searches(events: list, k: Kowalski):
                                 "drb": "$candidate.drb",
                                 "jdstarthist": "$candidate.jdstarthist",
                                 "sgscore": "$candidate.sgscore1",
+                                "distpsnr": "$candidate.distpsnr1",
+                                "ssdistnr": "$candidate.ssdistnr",
+                                "ssmagnr": "$candidate.ssmagnr",
                                 "ndethist": "$candidate.ndethist"
                             }
                         }
@@ -251,6 +254,9 @@ def archival_cone_searches(events, k: Kowalski):
                     "sigmapsf": "$candidate.sigmapsf",
                     "drb": "$candidate.drb",
                     "sgscore": "$candidate.sgscore1",
+                    "distpsnr": "$candidate.distpsnr1",
+                    "ssdistnr": "$candidate.ssdistnr",
+                    "ssmagnr": "$candidate.ssmagnr",
                 }
             },
             # then sort by jd desc
@@ -268,9 +274,12 @@ def archival_cone_searches(events, k: Kowalski):
                     "last_detected_sigmapsf": {"$first": "$sigmapsf"},
                     "last_detected_fid": {"$first": "$fid"},
                     "last_detected_drb": {"$first": "$drb"},
+                    "last_detected_ssdistnr": {"$first": "$ssdistnr"},
+                    "last_detected_ssmagnr": {"$first": "$ssmagnr"},
                     "jdstarthist": {"$first": "$jdstarthist"},
                     "ndethist": {"$first": "$ndethist"},
                     "sgscore": {"$first": "$sgscore"},
+                    "distpsnr": {"$first": "$distpsnr"},
                     "ra": {"$first": "$ra"},
                     "dec": {"$first": "$dec"},
                 }
@@ -293,9 +302,12 @@ def archival_cone_searches(events, k: Kowalski):
                         "last_detected_sigmapsf": "$last_detected_sigmapsf",
                         "last_detected_fid": "$last_detected_fid",
                         "last_detected_drb": "$last_detected_drb",
+                        "last_detected_ssdistnr": "$last_detected_ssdistnr",
+                        "last_detected_ssmagnr": "$last_detected_ssmagnr",
                         "jdstarthist": "$jdstarthist",
                         "ndethist": "$ndethist",
                         "sgscore": "$sgscore",
+                        "distpsnr": "$distpsnr",
                         "ra": "$ra",
                         "dec": "$dec",
                     }}

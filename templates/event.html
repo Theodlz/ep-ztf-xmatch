@@ -83,15 +83,25 @@
                     <th style="text-align:center;padding:5px"> fid</th>
                     <th style="text-align:center;padding:5px"> drb</th>
                     <th style="text-align:center;padding:5px"> age</th>
-                    <th style="text-align:center;padding:5px"> sgscore</th>
                     <th style="text-align:center;padding:5px"> ndets</th>
+                    <th style="text-align:center;padding:5px"> sgscore</th>
+                    <th style="text-align:center;padding:5px"> distpsnr</th>
+                    <th style="text-align:center;padding:5px"> ssdistnr</th>
+                    <th style="text-align:center;padding:5px"> ssmagnr</th>
                     <th style="text-align:center;padding:5px"> δ<sub>t</sub></th>
                     <th style="text-align:center;padding:5px"> δ<sub> d (arcmin)</sub></th>
-                    <th style="text-align:center;padding:5px"> δ<sub> d/err</sub></th>
+                    <th style="text-align:center;padding:5px"> δ<sub> d</sub>/err</th>
                 </tr>
 
                 {% for xmatch in xmatches %}
-                    <tr>
+                    {% if xmatch['ssdistnr'] is not none and xmatch['ssdistnr'] >= 0 %}
+                        <tr style="background-color:lightgrey">
+                    {% elif xmatch['sgscore'] is not none and xmatch['sgscore'] > 0.7 and xmatch['distpsnr'] is not none and xmatch['distpsnr'] < 2 %}
+                        <tr style="background-color:cyan">
+                    {% else %}
+                        <tr>
+                    {% endif %}
+                     
                         {% if is_admin %}
                             <td style="text-align:center;padding:5px"><a href="https://fritz.science/alerts/ztf/{{xmatch['object_id']}}" target="_blank">{{xmatch['object_id']}}</a></td>
                         {% else %}
@@ -113,14 +123,32 @@
                             <td style="text-align:center;padding:5px">--</td>
                         {% endif %}
 
-                        {% if xmatch['sgscore'] is not none %}
+                        {% if xmatch['ndethist'] is not none %}
+                            <td style="text-align:center;padding:5px">{{xmatch['ndethist']}}</td>
+                        {% else %}
+                            <td style="text-align:center;padding:5px">--</td>
+                        {% endif %}
+
+                        {% if xmatch['sgscore'] is not none and xmatch['sgscore'] != -999.0 %}
                             <td style="text-align:center;padding:5px">{{xmatch['sgscore']|round(2)}}</td>
                         {% else %}
                             <td style="text-align:center;padding:5px">--</td>
                         {% endif %}
 
-                        {% if xmatch['ndethist'] is not none %}
-                            <td style="text-align:center;padding:5px">{{xmatch['ndethist']}}</td>
+                        {% if xmatch['distpsnr'] is not none and xmatch['distpsnr'] != -999.0 %}
+                            <td style="text-align:center;padding:5px">{{xmatch['distpsnr']|round(2)}}</td>
+                        {% else %}
+                            <td style="text-align:center;padding:5px">--</td>
+                        {% endif %}
+
+                        {% if xmatch['ssdistnr'] is not none and xmatch['ssdistnr'] != -999.0 %}
+                            <td style="text-align:center;padding:5px">{{xmatch['ssdistnr']|round(2)}}</td>
+                        {% else %}
+                            <td style="text-align:center;padding:5px">--</td>
+                        {% endif %}
+
+                        {% if xmatch['ssmagnr'] is not none and xmatch['ssmagnr'] != -999.0 %}
+                            <td style="text-align:center;padding:5px">{{xmatch['ssmagnr']|round(2)}}</td>
                         {% else %}
                             <td style="text-align:center;padding:5px">--</td>
                         {% endif %}
@@ -161,14 +189,23 @@
                         <th style="text-align:center;padding:5px"> fid</th>
                         <th style="text-align:center;padding:5px"> drb</th>
                         <th style="text-align:center;padding:5px"> age</th>
-                        <th style="text-align:center;padding:5px"> sgscore</th>
                         <th style="text-align:center;padding:5px"> ndets</th>
+                        <th style="text-align:center;padding:5px"> sgscore</th>
+                        <th style="text-align:center;padding:5px"> distpsnr</th>
+                        <th style="text-align:center;padding:5px"> ssdistnr</th>
+                        <th style="text-align:center;padding:5px"> ssmagnr</th>
                         <th style="text-align:center;padding:5px"> δ<sub>t</sub></th>
                         <th style="text-align:center;padding:5px"> δ<sub> d (arcmin)</sub></th>
                         <th style="text-align:center;padding:5px"> δ<sub> d/err</sub></th>
                     </tr>
                     {% for xmatch in archival_xmatches %}
-                        <tr>
+                        {% if xmatch['last_detected_ssdistnr'] is not none and xmatch['last_detected_ssdistnr'] >= 0 %}
+                            <tr style="background-color:lightgrey">
+                        {% elif xmatch['sgscore'] is not none and xmatch['sgscore'] > 0.7 and xmatch['distpsnr'] is not none and xmatch['distpsnr'] < 2 %}
+                            <tr style="background-color:cyan">
+                        {% else %}
+                            <tr>
+                        {% endif %}
                             {% if is_admin %}
                                 <td style="text-align:center;padding:5px"><a href="https://fritz.science/alerts/ztf/{{xmatch['object_id']}}" target="_blank">{{xmatch['object_id']}}</a></td>
                             {% else %}
@@ -189,14 +226,32 @@
                                 <td style="text-align:center;padding:5px">--</td>
                             {% endif %}
 
-                            {% if xmatch['sgscore'] is not none %}
+                            {% if xmatch['ndethist'] is not none %}
+                                <td style="text-align:center;padding:5px">{{xmatch['ndethist']}}</td>
+                            {% else %}
+                                <td style="text-align:center;padding:5px">--</td>
+                            {% endif %}
+
+                            {% if xmatch['sgscore'] is not none and xmatch['sgscore'] != -999.0 %}
                                 <td style="text-align:center;padding:5px">{{xmatch['sgscore']|round(2)}}</td>
                             {% else %}
                                 <td style="text-align:center;padding:5px">--</td>
                             {% endif %}
 
-                            {% if xmatch['ndethist'] is not none %}
-                                <td style="text-align:center;padding:5px">{{xmatch['ndethist']}}</td>
+                            {% if xmatch['distpsnr'] is not none and xmatch['distpsnr'] != -999.0 %}
+                                <td style="text-align:center;padding:5px">{{xmatch['distpsnr']|round(2)}}</td>
+                            {% else %}
+                                <td style="text-align:center;padding:5px">--</td>
+                            {% endif %}
+
+                            {% if xmatch['last_detected_ssdistnr'] is not none and xmatch['last_detected_ssdistnr'] != -999.0 %}
+                                <td style="text-align:center;padding:5px">{{xmatch['last_detected_ssdistnr']|round(2)}}</td>
+                            {% else %}
+                                <td style="text-align:center;padding:5px">--</td>
+                            {% endif %}
+
+                            {% if xmatch['last_detected_ssmagnr'] is not none and xmatch['last_detected_ssmagnr'] != -999.0 %}
+                                <td style="text-align:center;padding:5px">{{xmatch['last_detected_ssmagnr']|round(2)}}</td>
                             {% else %}
                                 <td style="text-align:center;padding:5px">--</td>
                             {% endif %}
@@ -216,6 +271,18 @@
         <br />
         <hr/>
     {% endif %}
+
+    <!-- describe the color code here, with a list with colored circle -->
+    <br />
+    <br />
+    <br />
+    <div style="text-align:left">
+        <h4>Color Code:</h4>
+        <ul style="list-style-type:none; padding:0;">
+            <li><span style="background-color:cyan; width: 20px; height: 20px; display: inline-block;"></span> Star</li>
+            <li><span style="background-color:lightgrey; width: 20px; height: 20px; display: inline-block;"></span> Potential Rock</li>
+        </ul>
+    </div>
 
     <script>
         document.getElementById('version').addEventListener('change', function() {

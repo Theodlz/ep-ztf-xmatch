@@ -148,10 +148,33 @@ def migration3():
     conn.close()
     return
 
+# fourth migration adds the distpsnr, ssdistnr, ssmagnr to the xmatches and archival_xmatches tables
+def migration4():
+    conn = sqlite3.connect('./data/database.db')
+    c = conn.cursor()
+
+    # add the distpsnr, ssdistnr, ssmagnr columns to the xmatches table
+    for column in ['distpsnr', 'ssdistnr', 'ssmagnr']:
+        try:
+            c.execute(f'ALTER TABLE xmatches ADD COLUMN {column} REAL')
+        except sqlite3.OperationalError:
+            print(f"xmatches table already has {column} column.")
+    # add the distpsnr, ssdistnr, ssmagnr columns to the archival_xmatches table
+    for column in ['distpsnr', 'last_detected_ssdistnr', 'last_detected_ssmagnr']:
+        try:
+            c.execute(f'ALTER TABLE archival_xmatches ADD COLUMN {column} REAL')
+        except sqlite3.OperationalError:
+            print(f"archival_xmatches table already has {column} column.")
+    # commit the changes and close the connection
+    conn.commit()
+    conn.close()
+    return
+
 migrations = [
     migration1,
     migration2,
     migration3,
+    migration4,
 ]
 
 def run_migrations():
