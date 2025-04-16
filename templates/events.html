@@ -20,7 +20,7 @@
             <label for="latestOnly">Only latest version</label>
         </div>
         <div style="display: flex; justify-content: right; gap: 5px;">
-            {% if user_type in ['admin', 'caltech'] %}
+            {% if user_type in ['caltech'] %}
                 <div>
                     <input type="checkbox" id="matchesOnly" name="matchesOnly" {% if matchesOnly %}checked{% endif %}>
                     <label for="matchesOnly">Only with xmatches</label>
@@ -52,7 +52,7 @@
                 <th style="text-align:center;padding:5px"> version</th>
                 <th style="text-align:center;padding:5px"> xmatch status</th>
                 <th style="text-align:center;padding:5px"> xmatches</th>
-                {% if user_type in ['admin', 'caltech'] %}
+                {% if user_type in ['partner', 'caltech'] %}
                     <th style="text-align:center;padding:5px"> archival xmatches</th>
                 {% endif %}
             </tr>
@@ -75,7 +75,7 @@
                     <td style="text-align:center;padding:5px">{{event['version']}}</td>
                     <td style="text-align:center;padding:5px;background-color: {% if event['query_status'] == 'processing' or event['query_status'] == 'pending' %}#FFD700{% elif event['query_status']|slice(0,6) == 'failed' %}#FF6347{% endif %}">{{event['query_status']}}</td>
                     <td style="text-align:center;padding:5px;background-color: {% if event['num_xmatches'] > 0 %}#50C878{% endif %}">{{event['num_xmatches']}}</td>
-                    {% if user_type in ['admin', 'caltech'] %}
+                    {% if user_type in ['partner', 'caltech'] %}
                         <td style="text-align:center;padding:5px;">{{event['num_archival_xmatches']}}</td>
                     {% endif %}
                 </tr>
@@ -111,17 +111,17 @@
             </div>
 
             <script>
-                {% if user_type in ['admin', 'caltech'] %}
+                {% if user_type in ['caltech'] %}
                     function applyFilters(pageNumber, numPerPage) {
                         const matchesOnly = document.getElementById('matchesOnly').checked;
                         const matchesOnlyIgnoreArchival = document.getElementById('matchesOnlyIgnoreArchival').checked;
                         const latestOnly = document.getElementById('latestOnly').checked;
-                        return `/?pageNumber=${pageNumber}&numPerPage=${numPerPage}&matchesOnly=${matchesOnly}&matchesOnlyIgnoreArchival=${matchesOnlyIgnoreArchival}&latestOnly=${latestOnly}`;
+                        return `/events?pageNumber=${pageNumber}&numPerPage=${numPerPage}&matchesOnly=${matchesOnly}&matchesOnlyIgnoreArchival=${matchesOnlyIgnoreArchival}&latestOnly=${latestOnly}`;
                     }
                 {% else %}
                     function applyFilters(pageNumber, numPerPage) {
                         const latestOnly = document.getElementById('latestOnly').checked;
-                        return `/?pageNumber=${pageNumber}&numPerPage=${numPerPage}&latestOnly=${latestOnly}`;
+                        return `/events?pageNumber=${pageNumber}&numPerPage=${numPerPage}&latestOnly=${latestOnly}`;
                     }
                 {% endif %}
                 document.getElementById('pageNumber').onchange = function() {
@@ -135,7 +135,7 @@
                         window.location.href = applyFilters(1, this.value);
                     }
                 };
-                {% if user_type in ['admin', 'caltech'] %}
+                {% if user_type in ['partner', 'caltech'] %}
                     document.getElementById('matchesOnly').onchange = function() {
                         window.location.href = applyFilters({{pageNumber}}, {{numPerPage}});
                     };
