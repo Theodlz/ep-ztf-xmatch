@@ -170,11 +170,60 @@ def migration4():
     conn.close()
     return
 
+# In the fifth migration, we remove the archival_xmatches table, and simply add an archival flag to the `xmatches` table as a boolean column.
+def migration5():
+    conn = sqlite3.connect('./data/database.db')
+    c = conn.cursor()
+
+    # add the archival flag to the xmatches table
+    try:
+        c.execute('ALTER TABLE xmatches ADD COLUMN archival INTEGER DEFAULT 0') # 0 for False, 1 for True
+    except sqlite3.OperationalError:
+        print("xmatches table already has archival column.")
+
+    # drop the archival_xmatches table if it exists
+    try:
+        c.execute('DROP TABLE IF EXISTS archival_xmatches')
+    except sqlite3.OperationalError:
+        print("Failed to drop archival_xmatches table.")
+
+    # commit the changes and close the connection
+    conn.commit()
+    conn.close()
+
+# in the sixth migration, we edit the user types. We rename normal and admin to external and caltech
+# and then add a new type called partner
+def migration6():
+    conn = sqlite3.connect('./data/database.db')
+    c = conn.cursor()
+
+    # first check if the type column is already in the new format
+    c.execute('SELECT type FROM users LIMIT 1')
+    type = c.fetchone()[0]
+    if type in ['external', 'partner', 'caltech']:
+        print("users table type column already has the new types.")
+        return
+
+    # add a new type column, set the values, drop the old type column, and rename the new type column to type
+    try:
+        c.execute('ALTER TABLE users ADD COLUMN new_type TEXT DEFAULT "external" CHECK (new_type IN ("external", "partner", "caltech"))')
+        # then we update the new_type column with the old types
+        c.execute('UPDATE users SET new_type = "external" WHERE type = "normal"')
+        c.execute('UPDATE users SET new_type = "caltech" WHERE type = "admin"')
+        c.execute('ALTER TABLE users DROP COLUMN type')
+        c.execute('ALTER TABLE users RENAME COLUMN new_type TO type')
+    except sqlite3.OperationalError:
+        raise sqlite3.OperationalError("error updating users table type column.")
+
+    conn.commit()
+
 migrations = [
     migration1,
     migration2,
     migration3,
     migration4,
+    migration5,
+    migration6,
 ]
 
 def run_migrations():

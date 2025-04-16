@@ -102,7 +102,7 @@
                         <tr>
                     {% endif %}
                      
-                        {% if is_admin %}
+                        {% if user_type in ['admin', 'caltech'] %}
                             <td style="text-align:center;padding:5px"><a href="https://fritz.science/alerts/ztf/{{xmatch['object_id']}}" target="_blank">{{xmatch['object_id']}}</a></td>
                         {% else %}
                             <td style="text-align:center;padding:5px">{{xmatch['object_id']}}</td>
@@ -168,7 +168,7 @@
     <br />
     <hr/>
 
-    {% if is_admin %}
+    {% if user_type in ['admin', 'caltech'] %}
 
         <div style="text-align:center">
             <h2>Archival Matches:</h2>
@@ -199,29 +199,29 @@
                         <th style="text-align:center;padding:5px"> δ<sub> d/err</sub></th>
                     </tr>
                     {% for xmatch in archival_xmatches %}
-                        {% if xmatch['last_detected_ssdistnr'] is not none and xmatch['last_detected_ssdistnr'] >= 0 %}
+                        {% if xmatch['ssdistnr'] is not none and xmatch['ssdistnr'] >= 0 %}
                             <tr style="background-color:lightgrey">
                         {% elif xmatch['sgscore'] is not none and xmatch['sgscore'] > 0.7 and xmatch['distpsnr'] is not none and xmatch['distpsnr'] < 2 %}
                             <tr style="background-color:cyan">
                         {% else %}
                             <tr>
                         {% endif %}
-                            {% if is_admin %}
+                            {% if user_type in ['admin', 'caltech'] %}
                                 <td style="text-align:center;padding:5px"><a href="https://fritz.science/alerts/ztf/{{xmatch['object_id']}}" target="_blank">{{xmatch['object_id']}}</a></td>
                             {% else %}
                                 <td style="text-align:center;padding:5px">{{xmatch['object_id']}}</td>
                             {% endif %}
                             <td style="text-align:center;padding:5px">{{xmatch['ra']|round(4)}}</td>
                             <td style="text-align:center;padding:5px">{{xmatch['dec']|round(4)}}</td>
-                            <td style="text-align:center;padding:5px">{{xmatch['last_detected_magpsf']|round(4)}}</td>
-                            <td style="text-align:center;padding:5px">{{xmatch['last_detected_sigmapsf']|round(4)}}</td>
-                            <td style="text-align:center;padding:5px">{{xmatch['last_detected_utc']}}</td>
-                            <td style="text-align:center;padding:5px">{{(xmatch['last_detected_jd'] - 2400000.5)|round(4)}}</td>
-                            <td style="text-align:center;padding:5px">{{xmatch['last_detected_fid']}}</td>
-                            <td style="text-align:center;padding:5px">{{xmatch['last_detected_drb']|round(2)}}</td>
+                            <td style="text-align:center;padding:5px">{{xmatch['magpsf']|round(4)}}</td>
+                            <td style="text-align:center;padding:5px">{{xmatch['sigmapsf']|round(4)}}</td>
+                            <td style="text-align:center;padding:5px">{{xmatch['utc']}}</td>
+                            <td style="text-align:center;padding:5px">{{(xmatch['jd'] - 2400000.5)|round(4)}}</td>
+                            <td style="text-align:center;padding:5px">{{xmatch['fid']}}</td>
+                            <td style="text-align:center;padding:5px">{{xmatch['drb']|round(2)}}</td>
 
-                            {% if xmatch['last_detected_age'] is not none %}
-                                <td style="text-align:center;padding:5px">{{xmatch['last_detected_age']|round(2)}}</td>
+                            {% if xmatch['age'] is not none %}
+                                <td style="text-align:center;padding:5px">{{xmatch['age']|round(2)}}</td>
                             {% else %}
                                 <td style="text-align:center;padding:5px">--</td>
                             {% endif %}
@@ -244,14 +244,14 @@
                                 <td style="text-align:center;padding:5px">--</td>
                             {% endif %}
 
-                            {% if xmatch['last_detected_ssdistnr'] is not none and xmatch['last_detected_ssdistnr'] != -999.0 %}
-                                <td style="text-align:center;padding:5px">{{xmatch['last_detected_ssdistnr']|round(2)}}</td>
+                            {% if xmatch['ssdistnr'] is not none and xmatch['ssdistnr'] != -999.0 %}
+                                <td style="text-align:center;padding:5px">{{xmatch['ssdistnr']|round(2)}}</td>
                             {% else %}
                                 <td style="text-align:center;padding:5px">--</td>
                             {% endif %}
 
-                            {% if xmatch['last_detected_ssmagnr'] is not none and xmatch['last_detected_ssmagnr'] != -999.0 %}
-                                <td style="text-align:center;padding:5px">{{xmatch['last_detected_ssmagnr']|round(2)}}</td>
+                            {% if xmatch['ssmagnr'] is not none and xmatch['ssmagnr'] != -999.0 %}
+                                <td style="text-align:center;padding:5px">{{xmatch['ssmagnr']|round(2)}}</td>
                             {% else %}
                                 <td style="text-align:center;padding:5px">--</td>
                             {% endif %}

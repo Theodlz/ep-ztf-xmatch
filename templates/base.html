@@ -15,14 +15,16 @@
   <div class="collapse navbar-collapse" id="navbarSupportedContent">
     <ul class="navbar-nav mr-auto">
       <li class="nav-item active">
-        <a class="nav-link" href="/">Home</a>
+        <a class="nav-link" href="/events">EP Events</a>
+      </li>
+      <li class="nav-item active">
+        <a class="nav-link" href="/candidates">ZTF Matches</a>
       </li>
     </ul>
 
-       <!-- if is_admin=True, show "Admin" next to the username -->
-        <span class="navbar-text" style="margin-right: 10px;">
-          {{username}} {% if is_admin %} (admin) {% endif %}
-        </span>
+    <span class="navbar-text" style="margin-right: 10px;">
+      {{username}} ({{user_type}})
+    </span>
 
     <form class="form-inline my-2 my-lg-0" action="/logout" method="post">
       <button class="btn btn-outline-success my-2 my-sm-0" type="submit">Logout</button>

@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}{% endblock %}
+
+{% block head %}
+    {{ parent() }}
+    <style type="text/css">
+        .important { color: "#22222;" }
+    </style>
+{% endblock %}
+
+{% block content %}
+    {% block body %}
+    <div style="width: 100%; padding: 20px;">
+        <h1 style="text-align:center">ZTF + EP Candidates</h1>
+    <hr/>
+    <br />
+    <div style="display: flex; flex-direction: column; align-items: center;">
+        <table border="1" style='margin-left:auto;margin-right:auto'>
+            <tr>
+                <th style="text-align:center;padding:5px"> ZTF Object ID</th>
+                <th style="text-align:center;padding:5px"> EP Event Name</th>
+                <th style="text-align:center;padding:5px"> δ<sub>t</sub></th>
+                <th style="text-align:center;padding:5px"> δ<sub> d (arcmin)</sub></th>
+                <th style="text-align:center;padding:5px"> δ<sub> d</sub>/err</th>
+            </tr>
+
+            {% for xmatch in candidates %}
+                {% if xmatch['ssdistnr'] is not none and xmatch['ssdistnr'] >= 0 %}
+                    <tr style="background-color:lightgrey">
+                {% elif xmatch['sgscore'] is not none and xmatch['sgscore'] > 0.7 and xmatch['distpsnr'] is not none and xmatch['distpsnr'] < 2 %}
+                    <tr style="background-color:cyan">
+                {% else %}
+                    <tr>
+                {% endif %}
+                
+                    {% if user_type in ['admin', 'caltech'] %}
+                        <td style="text-align:center;padding:5px"><a href="https://fritz.science/alerts/ztf/{{xmatch['object_id']}}" target="_blank">{{xmatch['object_id']}}</a></td>
+                    {% else %}
+                        <td style="text-align:center;padding:5px">{{xmatch['object_id']}}</td>
+                    {% endif %}
+                    <td style="text-align:center;padding:5px">
+                        {{xmatch['event']['name']}}
+                    </td>
+
+                    {% if xmatch['delta_t'] is not none and xmatch['delta_t'] <= -1 %}
+                        <td style="text-align:center;padding:5px;background-color:#dda15e">{{xmatch['delta_t_str']}}</td>
+                    {% elif xmatch['delta_t'] is not none %}
+                        <td style="text-align:center;padding:5px;">{{xmatch['delta_t_str']}}</td>
+                    {% else %}
+                        <td style="text-align:center;padding:5px">--</td>
+                    {% endif %}
+                    <td style="text-align:center;padding:5px">{{xmatch['distance_arcmin']|round(2)}}</td>
+                    <td style="text-align:center;padding:5px">{{xmatch['distance_ratio']|round(2)}}</td>
+                </tr>
+            {% endfor %}
+        </table>
+
+        <div style="text-align:center; margin-top: 10px; display: flex; justify-content: right; gap: 20px;">
+            <form name="paginationForm" id="paginationForm" method="get" action="">
+                <label for="pageNumber">Page:</label>
+                <select name="pageNumber" id="pageNumber">
+                    {% for page in range(1, totalPages+1) %}
+                        <option value="{{page}}" {% if page == pageNumber %}selected{% endif %}>
+                            {{page}}
+                        </option>
+                    {% endfor %}
+                </select>
+                <label for="numPerPage">Rows per page:</label>
+                <select name="numPerPage" id="numPerPage">
+                    <option value="1" {% if numPerPage == 1 %}selected{% endif %}>1</option>
+                    <option value="10" {% if numPerPage == 10 %}selected{% endif %}>10</option>
+                    <option value="100" {% if numPerPage == 100 %}selected{% endif %}>100</option>
+                    <option value="1000" {% if numPerPage == 1000 %}selected{% endif %}>1000</option>
+                </select>
+            </form>
+            <span>{{(pageNumber-1)*numPerPage+1}}-{{[pageNumber*numPerPage, totalMatches] | min}} of {{totalMatches}}</span>
+            <div style="display: flex; gap: 14px;">
+                <span id="prevPage" style="color: {% if pageNumber > 1 %}blue{% else %}gray{% endif %}">
+                    &#60;
+                </span>
+                <span id="nextPage" style="color: {% if pageNumber < totalPages %}blue{% else %}gray{% endif %}">
+                    &#62;
+                </span>
+            </div>
+        </div>
+
+        <script>
+            function applyFilters(pageNumber, numPerPage) {
+                return `/candidates?pageNumber=${pageNumber}&numPerPage=${numPerPage}`;
+            }
+            document.getElementById('pageNumber').onchange = function() {
+                //  if its different from the current page number, submit the form
+                if (this.value != {{pageNumber}}) {
+                    window.location.href = applyFilters(this.value, {{numPerPage}});
+                }
+            };
+            document.getElementById('numPerPage').onchange = function() {
+                if (this.value != {{numPerPage}}) {
+                    window.location.href = applyFilters(1, this.value);
+                }
+            };
+    
+            document.getElementById('prevPage').onclick = function() {
+                if ({{pageNumber}} > 1) {
+                    window.location.href = applyFilters({{pageNumber}}-1, {{numPerPage}});
+                }
+            };
+            document.getElementById('nextPage').onclick = function() {
+                if ({{pageNumber}} < {{totalPages}}) {
+                    window.location.href = applyFilters({{pageNumber}}+1, {{numPerPage}});
+                }
+            };
+        </script>
+    </div>
+
+    <br /><br /><br />
+    <div style="text-align:left">
+        <h4>Color Code:</h4>
+        <ul style="list-style-type:none; padding:0;">
+            <li><span style="background-color:cyan; width: 20px; height: 20px; display: inline-block;"></span> Star</li>
+            <li><span style="background-color:lightgrey; width: 20px; height: 20px; display: inline-block;"></span> Potential Rock</li>
+        </ul>
+    </div>
+    </div>
+            
+    {% endblock %}
+{% endblock %}
+

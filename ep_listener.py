@@ -58,11 +58,12 @@ def service(k: Kowalski, last_event_fetch: float) -> float:
                 print(f'Failed to get new events: {e}')
                 new_events = []
             # check that they each have the allowed columns we need
-            for event in new_events:
-                missing = [col for col in ALLOWED_EVENT_COLUMNS if col not in event]
+            for i in range(len(new_events)):
+                missing = [col for col in ALLOWED_EVENT_COLUMNS if col not in new_events[i]]
                 if missing:
-                    print(event)
+                    print(f'Event does not have all required columns: {missing}')
                     raise ValueError('Event does not have all required columns: ' + ', '.join(missing))
+                new_events[i] = {k: v for k, v in new_events[i].items() if k in ALLOWED_EVENT_COLUMNS}
                     
             if len(new_events) > 0:
                 print(f'Inserting {len(new_events)} events (skips existing ones)')

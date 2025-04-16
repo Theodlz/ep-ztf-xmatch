@@ -5,7 +5,7 @@ import traceback
 import numpy as np
 
 from penquins import Kowalski
-from db import is_db_initialized, get_db_connection, fetch_events, update_event_status, insert_xmatches, remove_xmatches_by_event_id, insert_archival_xmatches
+from db import is_db_initialized, get_db_connection, fetch_events, update_event_status, insert_xmatches, remove_xmatches_by_event_id
 
 RADIUS_MULTIPLIER_DEFAULT = 1.0
 RADIUS_MULTIPLIER = float(os.getenv('RADIUS_MULTIPLIER', RADIUS_MULTIPLIER_DEFAULT))
@@ -48,7 +48,7 @@ def great_circle_distance(ra1_deg, dec1_deg, ra2_deg, dec2_deg):
 
     return distance * 180.0 / np.pi
 
-def cone_searches(events: list, k: Kowalski):
+def cone_searches(events: list, k: Kowalski, archival: bool = False):
     queries = []
 
     results = {}
@@ -58,8 +58,14 @@ def cone_searches(events: list, k: Kowalski):
         # convert to jd
         jd = Time(obs_start).jd # jd
         
-        jd_start = jd - DELTA_T
-        jd_end = jd + DELTA_T
+        if archival:
+            # for archival searches, look for candidates BEFORE the event time
+            jd_start = jd - DELTA_T - DELTA_T_ARCHIVAL
+            jd_end = jd - DELTA_T
+        else:
+            # for normal searches, look for candidates after the event time
+            jd_start = jd - DELTA_T
+            jd_end = jd + DELTA_T_ARCHIVAL 
         radius = event["pos_err"] * 60 * 60 # degrees to arcsec
         queries.append(
             {
@@ -112,6 +118,26 @@ def cone_searches(events: list, k: Kowalski):
                                             }
                                             }
                                         ]
+                                    },
+                                    { # remove known stars based on sgscore and associated distance
+                                        "$or": [
+                                            {
+                                                "candidate.sgscore1": {
+                                                    "$lt": 0.7
+                                                }
+                                            },
+                                            {
+                                                "candidate.distpsnr1": {
+                                                    "$gt": 2
+                                                }
+                                            },
+                                            {
+                                                "candidate.distpsnr1": {
+                                                    "$lt": 0
+                                                }
+                                            }
+
+                                        ]
                                     }
                                 ]
                             },
@@ -152,6 +178,14 @@ def cone_searches(events: list, k: Kowalski):
             continue
 
         for event_name, matches in response.get('data', {}).get('ZTF_alerts', {}).items():
+            event_id = None
+            for event in events:
+                if event['name'] == event_name:
+                    event_id = event['id']
+                    break
+            if event_id is None:
+                print(f'ERROR: No event found with {event_name}, skipping...')
+                continue
             # to each matches, add a delta_t field
             # and the distance to the event position in arcsec
             for match in matches:
@@ -169,195 +203,12 @@ def cone_searches(events: list, k: Kowalski):
                 # compute the age
                 match['age'] = match['jd'] - match['jdstarthist']
                 del match['jdstarthist']
+                if archival:
+                    match['archival'] = 1 # mark this as archival match
+
+                match['event_id'] = event_id # set the event_id for this match
 
             results[event_name] = matches
-
-    return results
-
-def archival_cone_searches(events, k: Kowalski):
-    # here instead of using Kowalski's conesearches feature, we'll use the 
-    # aggregation pipeline so we can:
-    # first query by position + distance
-    # then filter by time, and other quality cuts (e.g., rb, drb)
-    queries = []
-
-    for event in events:
-        obs_start = event["obs_start"] # datetime string
-        # convert to jd
-        jd = Time(obs_start).jd # jd
-
-        # we get the midpoint of the 30 minute window
-        
-        jd_start = jd - DELTA_T - DELTA_T_ARCHIVAL
-        jd_end = jd - DELTA_T # up to when we query the non-archival data
-
-        # convert the radius from degrees to radians by dividing by 180/pi
-        ra, dec = event["ra"], event["dec"]
-        radius_rad = event["pos_err"] / (180.0 / np.pi)
-        pipeline = [
-            {
-                "$match": {
-                    "coordinates.radec_geojson": {
-                        "$geoWithin": {
-                            "$centerSphere": [[ra - 180.0, dec], radius_rad]
-                        }
-                    },
-                    "candidate.jd": {
-                        "$gte": jd_start,
-                        "$lte": jd_end,
-                    },
-                    "candidate.rb": {
-                        "$gt": 0.3 # remove bogus detections (random forest)
-                    },
-                    "candidate.drb": {
-                        "$gt": 0.5 # remove bogus detections (deep learning)
-                    },
-                     "$and": [
-                        { # remove known solar system objects
-                            "$or": [
-                                {
-                                "candidate.ssdistnr": {
-                                    "$lt": 0
-                                }
-                                },
-                                {
-                                "candidate.ssdistnr": {
-                                    "$gte": 12
-                                }
-                                },
-                                {
-                                "candidate.ssmagnr": {
-                                    "$lte": -20
-                                }
-                                },
-                                {
-                                "candidate.ssmagnr": {
-                                    "$gte": 20
-                                }
-                                }
-                            ]
-                        }
-                    ]
-                }
-            },
-            {
-                "$project": {
-                    "_id": 0,
-                    "object_id": "$objectId",
-                    "jd": "$candidate.jd",
-                    "jdstarthist": "$candidate.jdstarthist",
-                    "ndethist": "$candidate.ndethist",
-                    "ra": "$candidate.ra",
-                    "dec": "$candidate.dec",
-                    "fid": "$candidate.fid",
-                    "magpsf": "$candidate.magpsf",
-                    "sigmapsf": "$candidate.sigmapsf",
-                    "drb": "$candidate.drb",
-                    "sgscore": "$candidate.sgscore1",
-                    "distpsnr": "$candidate.distpsnr1",
-                    "ssdistnr": "$candidate.ssdistnr",
-                    "ssmagnr": "$candidate.ssmagnr",
-                }
-            },
-            # then sort by jd desc
-            {
-                "$sort": {
-                    "jd": -1
-                }
-            },
-            # then group by object_id, keeping only the first one (the most recent),
-            {
-                "$group": {
-                    "_id": "$object_id",
-                    "last_detected_jd": {"$first": "$jd"},
-                    "last_detected_magpsf": {"$first": "$magpsf"},
-                    "last_detected_sigmapsf": {"$first": "$sigmapsf"},
-                    "last_detected_fid": {"$first": "$fid"},
-                    "last_detected_drb": {"$first": "$drb"},
-                    "last_detected_ssdistnr": {"$first": "$ssdistnr"},
-                    "last_detected_ssmagnr": {"$first": "$ssmagnr"},
-                    "jdstarthist": {"$first": "$jdstarthist"},
-                    "ndethist": {"$first": "$ndethist"},
-                    "sgscore": {"$first": "$sgscore"},
-                    "distpsnr": {"$first": "$distpsnr"},
-                    "ra": {"$first": "$ra"},
-                    "dec": {"$first": "$dec"},
-                }
-            },
-            # add the event name to each object, then use a group stage again
-            # so the final output is one document, with the event name and the
-            # list of objects
-            {
-                "$addFields": {
-                    "event_name": event["name"]
-                }
-            },
-            {
-                "$group": {
-                    "_id": "$event_name",
-                    "objects": {"$push": {
-                        "object_id": "$_id",
-                        "last_detected_jd": "$last_detected_jd",
-                        "last_detected_magpsf": "$last_detected_magpsf",
-                        "last_detected_sigmapsf": "$last_detected_sigmapsf",
-                        "last_detected_fid": "$last_detected_fid",
-                        "last_detected_drb": "$last_detected_drb",
-                        "last_detected_ssdistnr": "$last_detected_ssdistnr",
-                        "last_detected_ssmagnr": "$last_detected_ssmagnr",
-                        "jdstarthist": "$jdstarthist",
-                        "ndethist": "$ndethist",
-                        "sgscore": "$sgscore",
-                        "distpsnr": "$distpsnr",
-                        "ra": "$ra",
-                        "dec": "$dec",
-                    }}
-                }
-            }
-        ]
-
-        queries.append(
-            {
-                "query_type": "aggregate",
-                "query": {
-                    "catalog": "ZTF_alerts",
-                    "pipeline": pipeline,
-                }
-            }
-        )
-
-    # now we submit the queries in parallel, with up to 8 threads
-    responses = k.query(queries=queries, use_batch_query=True, max_n_threads=4)
-    results = {
-        event["name"]: [] for event in events
-    }
-    for response in responses.get('default', []):
-        if response.get('status') != 'success':
-            print(f'Failed to get objects at positions: {response.get("message", "")}')
-            continue
-
-        data = response.get('data', [])
-
-        if len(data) == 0:
-            continue
-
-        event_name, matches = data[0].get('_id'), data[0].get('objects', [])
-        event = [e for e in events if e['name'] == event_name][0]
-        obs_start = event["obs_start"] # datetime string
-        jd = Time(obs_start).jd # jd
-        # to each matches, add a delta_t field
-        # and the distance to the event position in arcsec
-        for match in matches:
-            match['delta_t'] = match['last_detected_jd'] - jd
-            match['distance_arcmin'] = great_circle_distance(
-                event['ra'], event['dec'], match['ra'], match['dec']
-            ) * 60
-            # and a distance_arcmin / pos_err ratio
-            match['distance_ratio'] = match['distance_arcmin'] / (event['pos_err'] * 60)
-
-            # compute the age for each
-            match['last_detected_age'] = match['last_detected_jd'] - match['jdstarthist']
-            del match['jdstarthist']
-        results[event_name] = matches
 
     return results
 
@@ -372,18 +223,35 @@ def service(k: Kowalski) -> float:
         # - the status is done (already queried)
         # - the obs_start is less than 24 hours ago
         # - the last_queried is more than 10 minutes ago
+        # or the status is 'reprocess'
         events_to_reprocess, _ = fetch_events(None, c, can_reprocess=True)
         if not events_to_reprocess:
             events_to_reprocess = []
 
-        events = new_events + events_to_reprocess
-        if not events:
-            print('No events to process')
+        if not new_events and not events_to_reprocess:
+            print('No events to process or reprocess.')
             return
 
-        print(f'Found {len(events)} events to process (including {len(events_to_reprocess)} to reprocess)')
+        print(f'Found {len(new_events)} events to process (and {len(events_to_reprocess)} to reprocess)')
 
-        for event in events:
+        # for the new events only and those with a reprocess status, we perform archival searches
+        for event in new_events + [e for e in events_to_reprocess if e['query_status'] == 'reprocess']:
+            try:
+                archival_results = cone_searches([event], k, archival=True)
+                print(f'Found {len(archival_results[event["name"]])} archival matches for event {event["name"]}')
+
+                xmatches = archival_results[event["name"]]
+                if len(xmatches) > 0:
+                    insert_xmatches(xmatches, c)
+            except Exception as e:
+                traceback.print_exc()
+                print(f'Failed to process archival event {event["name"]}: {e}')
+                update_event_status(event['id'], f'failed: {str(e)}', c)
+
+        conn.commit()
+
+        # for all events (new and those to reprocess), perform the non archival cone searches
+        for event in new_events + events_to_reprocess:
             try:
                 if event['query_status'] == 'pending':
                     update_event_status(event['id'], 'processing', c)
@@ -393,8 +261,6 @@ def service(k: Kowalski) -> float:
 
                 xmatches = results[event["name"]]
                 if len(xmatches) > 0:
-                    for xmatch in xmatches:
-                        xmatch['event_id'] = event['id']
                     remove_xmatches_by_event_id(event['id'], c)
                     insert_xmatches(xmatches, c)
 
@@ -403,24 +269,6 @@ def service(k: Kowalski) -> float:
                 traceback.print_exc()
                 print(f'Failed to process event {event["name"]}: {e}')
                 update_event_status(event['id'], f'failed: {str(e)}', c)
-        conn.commit()
-
-        # for the new events only, we perform archival searches
-        for event in new_events:
-            try:
-                results = archival_cone_searches([event], k)
-                print(f'Found {len(results[event["name"]])} archival matches for event {event["name"]}')
-
-                xmatches = results[event["name"]]
-                if len(xmatches) > 0:
-                    for xmatch in xmatches:
-                        xmatch['event_id'] = event['id']
-                    insert_archival_xmatches(xmatches, c)
-            except Exception as e:
-                traceback.print_exc()
-                print(f'Failed to process archival event {event["name"]}: {e}')
-                update_event_status(event['id'], f'failed: {str(e)}', c)
-
         conn.commit()
 
 if __name__ == "__main__":

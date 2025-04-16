@@ -99,15 +99,6 @@ def insert_xmatches(xmatches: list, c: sqlite3.Cursor) -> None:
             # update the xmatch with the new values
             c.execute(f"UPDATE xmatches SET {','.join([f'{k}=?' for k in xmatch.keys()])} WHERE id=?", (*xmatch.values(), xmatch['id']))
 
-def insert_archival_xmatches(archival_xmatches: list, c: sqlite3.Cursor) -> None:
-    for archival_xmatch in archival_xmatches:
-        query = f"INSERT INTO archival_xmatches ({','.join(archival_xmatch.keys())}) VALUES ({','.join(['?']*len(archival_xmatch))})"
-        try:
-            c.execute(query, tuple(archival_xmatch.values()))
-        except sqlite3.IntegrityError:
-            # update the xmatch with the new values
-            c.execute(f"UPDATE archival_xmatches SET {','.join([f'{k}=?' for k in archival_xmatch.keys()])} WHERE id=?", (*archival_xmatch.values(), archival_xmatch['id']))
-
 def update_event_status(event_id: int, status: str, c: sqlite3.Cursor) -> None:
     # when we update the query_status, we also want to update the updated_at timestamp, and the last_queried timestamp
     c.execute(f"UPDATE events SET query_status=?, updated_at=CURRENT_TIMESTAMP, last_queried=CURRENT_TIMESTAMP WHERE id=?", (status, event_id))
@@ -123,19 +114,35 @@ def fetch_events(event_names: list, c: sqlite3.Cursor, **kwargs) -> Tuple[list, 
     if event_names is not None:
         conditions.append(' name IN ({})'.format(','.join('?'*len(event_names))))
         parameters += event_names
+    elif isinstance(kwargs.get('event_ids'), list):
+        # if event_ids is provided, use it to filter the events
+        event_ids = kwargs.get('event_ids')
+        if isinstance(event_ids, int | str | list):
+            try:
+                if isinstance(event_ids, int | str):
+                    event_ids = [int(event_ids)]
+                elif isinstance(event_ids, list):
+                    event_ids = [int(event_id) for event_id in event_ids]
+            except Exception as e:
+                raise ValueError(f"Invalid event_ids provided: {event_ids}. Error: {e}")
+        conditions.append(' id IN ({})'.format(','.join('?'*len(event_ids))))
+        parameters += event_ids
     if kwargs.get('status') is not None:
         conditions.append(' query_status = ?')
         parameters.append(kwargs.get('status'))
     elif kwargs.get('can_reprocess') is not None:
         # can reprocess means that:
         # - the status is done
-        # - the obs_start is less than 24 hours ago
+        # - the obs_start is less than 31 days old (to avoid getting new candidates for events that are too old)
         # - the last_queried is more than 10 minutes ago
-        conditions.append(' query_status = ?')
-        conditions.append(' obs_start > ?')
-        conditions.append(' last_queried < ?')
+        # OR the status is reprocess
+        # conditions.append(' query_status = ?')
+        # conditions.append(' obs_start > ?')
+        # conditions.append(' last_queried < ?')
+        conditions.append(' (query_status = ? OR (query_status = ? AND obs_start >= ? AND last_queried < ?)) ')
+        parameters.append('reprocess')  # for the reprocess case
         parameters.append('done')
-        parameters.append(datetime.utcnow() - timedelta(hours=24))
+        parameters.append(datetime.utcnow() - timedelta(days=31))
         parameters.append(datetime.utcnow() - timedelta(minutes=10))
     if kwargs.get('latestOnly') == True:
         # latest only means that for all events with the same name, we only return the latest one (highest version)
@@ -143,20 +150,16 @@ def fetch_events(event_names: list, c: sqlite3.Cursor, **kwargs) -> Tuple[list, 
         # this one above doesn't work, it seems like it just keeps the events with the highest version in the table
     if kwargs.get('matchesOnly') == True:
         #  here we only return events if they have matches in the xmatches table
-        or_conditions = []
+        tmp_condition = "SELECT event_id FROM xmatches where event_id = events.id"
         if isinstance(kwargs.get('matchesMaxDeltaT'), int | float) and kwargs.get('matchesMaxDeltaT') > 0:
-            or_conditions.append('id IN (SELECT event_id FROM xmatches where event_id = events.id and abs(xmatches.delta_t) <= ? GROUP BY event_id)')
+            tmp_condition +=' AND abs(xmatches.delta_t) <= ? '
             parameters.append(kwargs.get('matchesMaxDeltaT'))
-        else:
-            or_conditions.append('id IN (SELECT event_id FROM xmatches where event_id = events.id GROUP BY event_id)')
 
-        if kwargs.get('matchesOnlyIgnoreArchival', False) == False:
-            or_conditions.append('id IN (SELECT event_id FROM archival_xmatches where event_id = events.id GROUP BY event_id)')
+        if kwargs.get('matchesOnlyIgnoreArchival', False) == True:
+            tmp_condition += ' AND archival=0 '  # only consider non-archival xmatches using the ar
 
-        if len(or_conditions) > 1:
-            conditions.append(' (' + ' OR '.join(or_conditions) + ') ')
-        else:
-            conditions.append(' ' + or_conditions[0] + ' ')
+        tmp_condition += f' GROUP BY event_id'
+        conditions.append(f' id IN ({tmp_condition}) ')
     
     if len(conditions) > 0:
         query += ' WHERE' + ' AND'.join(conditions)
@@ -192,30 +195,66 @@ def fetch_event_by_id(event_id: int, c: sqlite3.Cursor) -> list:
     return c.fetchone()
 
 def fetch_xmatches(event_ids: list, c: sqlite3.Cursor, **kwargs) -> list:
-    if len(event_ids) == 0:
-        raise ValueError("No event IDs provided.")
-
     query = 'SELECT * FROM xmatches'
-    conditions = [' event_id IN ({}) '.format(','.join('?'*len(event_ids)))]
-    parameters = [event_id for event_id in event_ids]
-    if isinstance(kwargs.get('maxDeltaT'), int | float) and kwargs.get('maxDeltaT') > 0:
-        conditions.append(' abs(delta_t) <= ? ')
-        parameters.append(kwargs.get('maxDeltaT'))
+    count_query = 'SELECT COUNT(*) FROM xmatches'
+    conditions = []
+    parameters = []
 
-    query += ' WHERE' + ' AND'.join(conditions)
-    query += ' ORDER BY jd DESC, object_id DESC'
-
-    c.execute(query, tuple(parameters))
-    return c.fetchall()
-
-def fetch_archival_xmatches(event_ids: list, c: sqlite3.Cursor) -> list:
-    event_ids = [str(event_id) for event_id in event_ids]
-    if event_ids is None:
-        c.execute('SELECT * FROM archival_xmatches order by id')
+    if isinstance(event_ids, int | str | list):
+        # ensure event_ids is a list of strings
+        try:
+            if isinstance(event_ids, int | str):
+                event_ids = [int(event_ids)]
+            elif isinstance(event_ids, list):
+                event_ids = [int(event_id) for event_id in event_ids]
+        except Exception as e:
+            raise ValueError(f"Invalid event_ids provided: {event_ids}. Error: {e}")
     else:
-        c.execute(f'SELECT * FROM archival_xmatches WHERE event_id IN ({",".join(event_ids)}) order by last_detected_jd desc, object_id desc')
+        event_ids = []
 
-    return c.fetchall()
+    if len(event_ids) > 0:
+        conditions.append('event_id IN ({})'.format(','.join('?'*len(event_ids))))
+        parameters += event_ids
+    
+    if isinstance(kwargs.get('maxDeltaT'), int | float) and kwargs.get('maxDeltaT') > 0:
+        conditions.append('delta_t <= ?')
+        parameters.append(kwargs.get('maxDeltaT'))
+    if isinstance(kwargs.get('minDeltaT'), int | float):
+        # ensure that minDeltaT is less than maxDeltaT if both are provided
+        if kwargs.get('maxDeltaT', float('inf')) < kwargs.get('minDeltaT'):
+            raise ValueError("maxDeltaT must be greater than or equal to minDeltaT")
+        conditions.append('delta_t >= ?')
+        parameters.append(kwargs.get('minDeltaT'))
+
+    if isinstance(kwargs.get('eventAgeDays'), int | float) and kwargs.get('eventAgeDays') > 0:
+        # compute the current timestamp minus the number of days specified in eventAgeDays
+        # we don't return candidates if the associated event is older than the specified number of days
+        conditions.append('event_id IN (SELECT id FROM events WHERE obs_start >= ?)')
+        parameters.append(
+            (datetime.utcnow() - timedelta(days=kwargs.get('eventAgeDays'))).timestamp()
+        )
+
+    if isinstance(kwargs.get('archival'), bool):
+        archival = kwargs.get('archival')
+        conditions.append(f'archival={1 if archival else 0}')
+
+    if len(conditions) > 0:
+        query += ' WHERE ' + ' AND '.join(conditions)
+        count_query += ' WHERE ' + ' AND '.join(conditions)
+
+    count = c.execute(count_query, tuple(parameters)).fetchone()['COUNT(*)']
+
+    if kwargs.get('order_by') is not None:
+        query += f' ORDER BY {kwargs.get("order_by")}'
+    else:
+        query += ' ORDER BY jd DESC, object_id DESC'
+
+    if kwargs.get('pageNumber') is not None and kwargs.get('numPerPage') is not None:
+        query += f' LIMIT {kwargs.get("numPerPage")} OFFSET {(kwargs.get("pageNumber") - 1) * kwargs.get("numPerPage")}'
+
+    xmatches = c.execute(query, tuple(parameters)).fetchall()
+    return xmatches, count
+
 
 if __name__ == "__main__":
     import argparse
