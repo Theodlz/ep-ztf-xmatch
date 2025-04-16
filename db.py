@@ -238,6 +238,13 @@ def fetch_xmatches(event_ids: list, c: sqlite3.Cursor, **kwargs) -> list:
         archival = kwargs.get('archival')
         conditions.append(f'archival={1 if archival else 0}')
 
+    if kwargs.get('deduplicateByEventName') == True:
+        # since we can have the same event (same name) with different versions, we want to deduplicate the xmatches by event name
+        # since means that we join the xmatches table with the events table and only keep the xmatches with the latest version of the event
+        query += ' INNER JOIN events ON xmatches.event_id = events.id '
+        count_query += ' INNER JOIN events ON xmatches.event_id = events.id '
+        conditions.append('events.version = (SELECT MAX(version) FROM events AS e WHERE e.name = events.name)')
+
     if len(conditions) > 0:
         query += ' WHERE ' + ' AND '.join(conditions)
         count_query += ' WHERE ' + ' AND '.join(conditions)

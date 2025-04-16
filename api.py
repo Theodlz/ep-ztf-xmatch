@@ -454,6 +454,7 @@ def make_app():
                 None, c,
                 pageNumber=pageNumber,
                 numPerPage=numPerPage,
+                deduplicateByEventName=True,
             )
             if candidates is None:
                 candidates = []
