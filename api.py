@@ -432,9 +432,9 @@ def make_app():
     def candidates_page():
         # the candidates page lists all xmatches, ordered by JD descending, and with their associated event information
         user_type = request.user.get('type')    
-        if user_type not in ["partner", "caltech"]:
+        if user_type not in ["external", "partner", "caltech"]:
             return {
-                'message': 'Unauthorized, must be a partner or caltech user',
+                'message': 'Unauthorized, must be: external, partner, or caltech',
             }, 401
         
         pageNumber = request.args.get('pageNumber', 1)
