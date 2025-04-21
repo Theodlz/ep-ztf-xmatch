@@ -5,7 +5,7 @@ import traceback
 import numpy as np
 
 from penquins import Kowalski
-from db import is_db_initialized, get_db_connection, fetch_events, update_event_status, insert_xmatches, remove_xmatches_by_event_id
+from db import is_db_initialized, get_db_connection, fetch_events, update_event_status, insert_xmatches
 
 RADIUS_MULTIPLIER_DEFAULT = 1.0
 RADIUS_MULTIPLIER = float(os.getenv('RADIUS_MULTIPLIER', RADIUS_MULTIPLIER_DEFAULT))

@@ -362,11 +362,12 @@ if __name__ == "__main__":
         for xmatch in xmatches:
             try:
                 processed, skipped = process_xmatch(xmatch, conn)
+                if processed and skipped:
+                    continue
                 if processed:
                     set_xmatch_as_processed(xmatch["id"], conn)
                     conn.commit()
-                if not skipped:
-                    time.sleep(5)
+                time.sleep(5)
             except Exception as e:
                 print(f"Error processing xmatch {xmatch['object_id']}: {e}")
                 continue
