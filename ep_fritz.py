@@ -116,17 +116,16 @@ class SkyPortal():
             print(f"Candidate {alert['object_id']} posted successfully.")
             return True
         
-        message = response.get("message", "Unknown error")
-        if 'duplicate key value violates unique constraint "candidates_main_index"' in message:
+        if isinstance(response, dict) and 'duplicate key value violates unique constraint "candidates_main_index"' in response.get("message", ""):
             print(f"Candidate {alert['object_id']} already exists.")
             return True
         
-        print(f"Failed to post candidate {alert['object_id']}: {message}")
+        print(f"Failed to post candidate {alert['object_id']}: {response.text}")
         return False
     
     def import_from_kowalski(self, alert):
         # Fetch the object from Kowalski
-        status_code, _ = self.api(
+        status_code, response = self.api(
             "POST",
             f"alerts/{alert['object_id']}?candid={alert['candid']}",
         )
@@ -134,7 +133,7 @@ class SkyPortal():
             print(f"Fetched object {alert['object_id']} from Kowalski.")
             return True
 
-        print(f"Failed to fetch object {alert['object_id']} from Kowalski.")
+        print(f"Failed to fetch object {alert['object_id']} from Kowalski: {response.text}")
         return False
     
     def fetch_annotations(
@@ -151,7 +150,7 @@ class SkyPortal():
             print(f"Fetched annotations for {alert['object_id']}.")
             return response['data']
 
-        print(f"Failed to fetch annotations for {alert['object_id']}: {response}")
+        print(f"Failed to fetch annotations for {alert['object_id']}: {response.text}")
         return None
     
     def post_annotations(
@@ -191,8 +190,8 @@ class SkyPortal():
             if status_code == 200:
                 print(f"Annotations for {alert['object_id']} posted successfully.")
                 return True
-            message = response.get("message", "Unknown error")
-            print(f"Failed to post annotations for {alert['object_id']}: {message}")
+
+            print(f"Failed to post annotations for {alert['object_id']}: {response.text}")
             return False
         
         ep_annotation = ep_annotations[0]
@@ -241,8 +240,8 @@ class SkyPortal():
         if status_code == 200:
             print(f"Annotations for {alert['object_id']} updated successfully.")
             return True
-        message = response.get("message", "Unknown error")
-        print(f"Failed to update annotations for {alert['object_id']}: {message}")
+
+        print(f"Failed to update annotations for {alert['object_id']}: {response.text}")
         return False
 
 def process_xmatch(xmatch, c):
