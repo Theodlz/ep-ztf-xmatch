@@ -293,8 +293,16 @@ def service(k: Kowalski) -> float:
                 xmatches = archival_results[event["name"]]
                 if len(xmatches) > 0:
                     print(f'Found {len(archival_results[event["name"]])} archival matches for event {event["name"]}')
-                    remove_xmatches_by_event_id(event['id'], c, keep_archival=False)
-                    insert_xmatches(xmatches, c)
+                    for xmatch in xmatches:
+                        try:
+                            insert_xmatches([xmatch], c)
+                        except Exception as e:
+                            # if the xmatch already exists, we can ignore the error
+                            if 'UNIQUE constraint failed' in str(e):
+                                print(f'Archival xmatch {xmatch["candid"]} already exists, skipping...')
+                            else:
+                                print(f'Failed to insert archival xmatch {xmatch["candid"]} for event {event["name"]}: {e}')
+                                traceback.print_exc()
             except Exception as e:
                 traceback.print_exc()
                 print(f'Failed to process archival event {event["name"]}: {e}')
@@ -313,8 +321,16 @@ def service(k: Kowalski) -> float:
                 xmatches = results[event["name"]]
                 if len(xmatches) > 0:
                     print(f'Found {len(xmatches)} matches for event {event["name"]}')
-                    remove_xmatches_by_event_id(event['id'], c, keep_archival=True)
-                    insert_xmatches(xmatches, c)
+                    for xmatch in xmatches:
+                        try:
+                            insert_xmatches([xmatch], c)
+                        except Exception as e:
+                            # if the xmatch already exists, we can ignore the error
+                            if 'UNIQUE constraint failed' in str(e):
+                                print(f'Xmatch {xmatch["candid"]} already exists, skipping...')
+                            else:
+                                print(f'Failed to insert xmatch {xmatch["candid"]} for event {event["name"]}: {e}')
+                                traceback.print_exc()
 
                 update_event_status(event['id'], 'done', c)
             except Exception as e:
