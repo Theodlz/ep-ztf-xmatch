@@ -234,7 +234,7 @@ def fetch_xmatches(event_ids: list, c: sqlite3.Cursor, **kwargs) -> list:
         # we don't return candidates if the associated event is older than the specified number of days
         conditions.append('event_id IN (SELECT id FROM events WHERE obs_start >= ?)')
         parameters.append(
-            (datetime.utcnow() - timedelta(days=kwargs.get('eventAgeDays'))).timestamp()
+            (datetime.utcnow() - timedelta(days=kwargs.get('eventAgeDays')))
         )
 
     if isinstance(kwargs.get('archival'), bool):
@@ -264,6 +264,12 @@ def fetch_xmatches(event_ids: list, c: sqlite3.Cursor, **kwargs) -> list:
         # if created_before is provided, we only want to return xmatches that are created before the specified date
         conditions.append('created_at <= ?')
         parameters.append(kwargs.get('created_before'))
+
+    if kwargs.get('detected_after') is not None:
+        # if detected_after is provided, we only want to return xmatches that are detected after the specified date
+        # basically filtering on the jd column
+        conditions.append('jd >= ?')
+        parameters.append(kwargs.get('detected_after'))
 
     if len(conditions) > 0:
         query += ' WHERE ' + ' AND '.join(conditions)

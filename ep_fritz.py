@@ -343,13 +343,22 @@ if __name__ == "__main__":
 
     with get_db_connection() as conn:
         # Fetch events and xmatches from the database
+
+        # Only process xmatches that were created in the last 24 hours
+        created_after = datetime.now(timezone.utc) - timedelta(days=1)
+
+        # Only process candidates that are less than 2 months old
+        detected_after = float(Time(
+            datetime.now(timezone.utc) - timedelta(days=62)
+        ).jd)
+
         xmatches, count = fetch_xmatches(
             event_ids=None,
             c=conn,
             to_skyportal=False,
-            # only get xmatches that were created
-            # after the last 24 hours
             created_after=created_after,
+            detected_after=detected_after,
+            eventAgeDays=MAX_EVENT_AGE,
         )
 
         print(f"Found {count} xmatches to process.")
