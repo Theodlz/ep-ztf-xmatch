@@ -245,6 +245,23 @@ def fetch_xmatches(event_ids: list, c: sqlite3.Cursor, **kwargs) -> list:
         count_query += ' INNER JOIN events ON xmatches.event_id = events.id '
         conditions.append('events.version = (SELECT MAX(version) FROM events AS e WHERE e.name = events.name)')
 
+    if kwargs.get('to_skyportal') is not None:
+        # if toSkyportal is True, we only want to return xmatches that are to be sent to SkyPortal
+        # if toSkyportal is False, we only want to return xmatches that are not to be sent to SkyPortal
+        conditions.append('to_skyportal = ?')
+        parameters.append(1 if kwargs.get('to_skyportal') else 0)
+
+    if kwargs.get('created_after') is not None:
+        # if created_after is provided, we only want to return xmatches that are created after the specified date
+        # the created_at column is a timestamp without timezone
+        conditions.append('created_at >= ?')
+        parameters.append(kwargs.get('created_after'))
+
+    if kwargs.get('created_before') is not None:
+        # if created_before is provided, we only want to return xmatches that are created before the specified date
+        conditions.append('created_at <= ?')
+        parameters.append(kwargs.get('created_before'))
+
     if len(conditions) > 0:
         query += ' WHERE ' + ' AND '.join(conditions)
         count_query += ' WHERE ' + ' AND '.join(conditions)
@@ -261,6 +278,10 @@ def fetch_xmatches(event_ids: list, c: sqlite3.Cursor, **kwargs) -> list:
 
     xmatches = c.execute(query, tuple(parameters)).fetchall()
     return xmatches, count
+
+def set_xmatch_as_processed(xmatch_id: int, c: sqlite3.Cursor) -> None:
+    # set the xmatch as processed
+    c.execute(f"UPDATE xmatches SET to_skyportal=1 WHERE id=?", (xmatch_id,))
 
 
 if __name__ == "__main__":

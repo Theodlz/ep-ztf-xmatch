@@ -94,6 +94,9 @@ def cone_searches(events: list, k: Kowalski, archival: bool = False):
                                 "candidate.drb": {
                                     "$gt": 0.5 # remove bogus detections (deep learning)
                                 },
+                                "candidate.isdiffpos": {
+                                    "$in": ["t", "T", "true", "True", True, "1", 1]
+                                },
                                 "$and": [
                                     { # remove known solar system objects
                                         "$or": [

@@ -217,6 +217,21 @@ def migration6():
 
     conn.commit()
 
+# the seventh migration adds a to_skyportal column on the xmatches table which is a boolean column
+def migration7():
+    conn = sqlite3.connect('./data/database.db')
+    c = conn.cursor()
+
+    # add the to_skyportal column to the xmatches table
+    try:
+        c.execute('ALTER TABLE xmatches ADD COLUMN to_skyportal INTEGER DEFAULT 0') # 0 for False, 1 for True
+    except sqlite3.OperationalError:
+        print("xmatches table already has to_skyportal column.")
+
+    # commit the changes and close the connection
+    conn.commit()
+    conn.close()
+
 migrations = [
     migration1,
     migration2,
@@ -224,6 +239,7 @@ migrations = [
     migration4,
     migration5,
     migration6,
+    migration7
 ]
 
 def run_migrations():
