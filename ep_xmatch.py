@@ -48,6 +48,39 @@ def great_circle_distance(ra1_deg, dec1_deg, ra2_deg, dec2_deg):
 
     return distance * 180.0 / np.pi
 
+def is_red_star(match):
+    sgscore = match.get('sgscore', -999)
+    distpsnr = match.get('distpsnr', -999)
+    srmag = match.get('srmag', -999)
+    simag = match.get('simag', -999)
+    szmag = match.get('szmag', -999)
+
+    if (
+        distpsnr < 0 or distpsnr > 1.0
+        or sgscore <= 0.2
+    ):
+        return False
+    
+    if (
+        srmag > 0 and simag > 0
+        and srmag - simag > 3
+    ):
+        return True
+    
+    if (
+        srmag > 0 and szmag > 0
+        and srmag - szmag > 3
+    ):
+        return True
+    
+    if (
+        simag > 0 and szmag > 0
+        and simag - szmag > 3
+    ):
+        return True
+    
+    return False
+
 def cone_searches(events: list, k: Kowalski, archival: bool = False):
     queries = []
 
@@ -160,7 +193,12 @@ def cone_searches(events: list, k: Kowalski, archival: bool = False):
                                 "distpsnr": "$candidate.distpsnr1",
                                 "ssdistnr": "$candidate.ssdistnr",
                                 "ssmagnr": "$candidate.ssmagnr",
-                                "ndethist": "$candidate.ndethist"
+                                "ndethist": "$candidate.ndethist",
+                                # we grab some extra fields to remove
+                                # potential stars later on
+                                "srmag": "$candidate.srmag1",
+                                "simag": "$candidate.simag1",
+                                "szmag": "$candidate.szmag1",
                             }
                         }
                     }
@@ -192,6 +230,14 @@ def cone_searches(events: list, k: Kowalski, archival: bool = False):
             # to each matches, add a delta_t field
             # and the distance to the event position in arcsec
             for match in matches:
+                if is_red_star(match):
+                    print(f'Found a red star candidate {match["object_id"]}, skipping...')
+                    continue
+                # remove the extra fields we just needed for filtering
+                del match['srmag']
+                del match['simag']
+                del match['szmag']
+
                 event = [e for e in events if e['name'] == event_name][0]
                 obs_start = event["obs_start"] # datetime string
                 jd = Time(obs_start).jd # jd
