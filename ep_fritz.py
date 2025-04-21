@@ -25,6 +25,11 @@ try:
 except ValueError:
     raise Exception("FRITZ_FILTER_ID environment variable is not a valid integer.")
 
+try:
+    FRITZ_IMPORT_GROUP_ID = int(FRITZ_IMPORT_GROUP_ID)
+except ValueError:
+    raise Exception("FRITZ_IMPORT_GROUP_ID environment variable is not a valid integer.")
+
 
 class SkyPortal():
     def __init__(self, host=None, token=None):
