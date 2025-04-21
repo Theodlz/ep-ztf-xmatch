@@ -19,6 +19,7 @@ COPY ["api.py", \
         "db.py", \
         "migrate.py", \
         "ep_listener.py", \
+        "ep_fritz.py", \
         "ep_xmatch.py", \
         "pyproject.toml", \
         "supervisord.conf", \
