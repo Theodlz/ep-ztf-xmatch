@@ -16,3 +16,5 @@ services:
       - DELTA_T=1.0
       - DELTA_T_ARCHIVAL=31.0
       - MAX_DT_XMATCH_NONADMIN=60.0 # in minutes
+      - FRITZ_HOST=https://fritz.science
+      - FRITZ_TOKEN=<your-fritz-token>
