@@ -9,10 +9,13 @@ import os
 
 FRITZ_HOST = os.getenv("FRITZ_HOST")
 FRITZ_TOKEN = os.getenv("FRITZ_TOKEN")
+FRITZ_FILTER_ID = os.getenv("FRITZ_FILTER_ID")
 if FRITZ_HOST is None:
     raise Exception("FRITZ_HOST environment variable is not set.")
 if FRITZ_TOKEN is None or FRITZ_TOKEN == "<your-fritz-token>":
     raise Exception("FRITZ_TOKEN environment variable is not set.")
+if FRITZ_FILTER_ID is None or FRITZ_FILTER_ID == "<fritz-ztfep-filter-id>":
+    raise Exception("FRITZ_FILTER_ID environment variable is not set.")
 
 
 class SkyPortal():
@@ -69,7 +72,7 @@ class SkyPortal():
         if status_code == 200:
             # find the ZTF filter
             for filter in response["data"]:
-                if filter["name"] == "ZTF+EP":
+                if filter["id"] == FRITZ_FILTER_ID:
                     return filter["id"], filter["group_id"]
         else:
             raise Exception(f"Failed to fetch filters: {response}")

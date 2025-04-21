@@ -18,3 +18,4 @@ services:
       - MAX_DT_XMATCH_NONADMIN=60.0 # in minutes
       - FRITZ_HOST=https://fritz.science
       - FRITZ_TOKEN=<your-fritz-token>
+      - FRITZ_FILTER_ID=<fritz-ztfep-filter-id>
