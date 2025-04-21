@@ -11,6 +11,7 @@ FRITZ_HOST = os.getenv("FRITZ_HOST")
 FRITZ_TOKEN = os.getenv("FRITZ_TOKEN")
 FRITZ_FILTER_ID = os.getenv("FRITZ_FILTER_ID")
 FRITZ_IMPORT_GROUP_ID = os.getenv("FRITZ_IMPORT_GROUP_ID")
+DEBUG = os.getenv("DEBUG", "False").lower() in ["true", "1", "yes"]
 if FRITZ_HOST is None:
     raise Exception("FRITZ_HOST environment variable is not set.")
 if FRITZ_TOKEN is None or FRITZ_TOKEN == "<your-fritz-token>":
@@ -127,14 +128,14 @@ class SkyPortal():
 
         if status_code == 200:
             print(f"Candidate {alert['object_id']} posted successfully.")
-            return True
+            return True, False
         
         if isinstance(response, dict) and 'duplicate key value violates unique constraint "candidates_main_index"' in response.get("message", ""):
             print(f"Candidate {alert['object_id']} already exists.")
-            return True
+            return True, True
         
         print(f"Failed to post candidate {alert['object_id']}: {response}")
-        return False
+        return False, False
     
     def import_from_kowalski(self, alert):
         # Fetch the object from Kowalski
@@ -263,30 +264,40 @@ class SkyPortal():
         return False
 
 def process_xmatch(xmatch, c):
-    # 1. Post the candidate to SkyPortal
-    posted = sp.post_candidate(xmatch)
-    if not posted:
-        print(f"Failed to post candidate {xmatch['object_id']}.")
-        return False
-    
-    # 2. Import the object's data (phot + cutouts) from Kowalski
-    imported = sp.import_from_kowalski(xmatch)
-    if not imported:
-        print(f"Failed to import object {xmatch['object_id']} from Kowalski.")
-        return False
 
-    # 3. Grab the event for that match
+    # 1. Grab the event for that match
     events, count = fetch_events(
         event_names=None,
         event_ids=[xmatch["event_id"]],
-        c=conn,
+        c=c,
     )
     if count == 0:
         print(f"Failed to find event {xmatch['event_id']} for xmatch {xmatch['object_id']} (candid {xmatch['candid']}).")
         return False
     event = events[0]
 
-    # 3. Post the annotations
+    # if DEBUG, only look at events that are no older than 24 hours
+    if DEBUG:
+        obs_after = datetime.now(timezone.utc) - timedelta(hours=24)
+        event_time = Time(event["obs_start"], format="isot").datetime
+        if event_time < obs_after:
+            print(f"DEBUG - Event {event['name']} associated to xmatch {xmatch['object_id']} (candid {xmatch['candid']}) is older than 24 hours. Skipping.")
+            return True
+
+    # 2. Post the candidate to SkyPortal
+    posted, already_posted = sp.post_candidate(xmatch)
+    if not posted:
+        print(f"Failed to post candidate {xmatch['object_id']}.")
+        return False
+    
+    # 3. Import the object's data (phot + cutouts) from Kowalski
+    if not already_posted:
+        imported = sp.import_from_kowalski(xmatch)
+        if not imported:
+            print(f"Failed to import object {xmatch['object_id']} from Kowalski.")
+            return False
+
+    # 4. Post the annotations
     posted = sp.post_annotations(xmatch, event)
     if not posted:
         print(f"Failed to post/update annotations for {xmatch['object_id']}.")
