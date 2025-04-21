@@ -17,6 +17,11 @@ if FRITZ_TOKEN is None or FRITZ_TOKEN == "<your-fritz-token>":
 if FRITZ_FILTER_ID is None or FRITZ_FILTER_ID == "<fritz-ztfep-filter-id>":
     raise Exception("FRITZ_FILTER_ID environment variable is not set.")
 
+try:
+    FRITZ_FILTER_ID = int(FRITZ_FILTER_ID)
+except ValueError:
+    raise Exception("FRITZ_FILTER_ID environment variable is not a valid integer.")
+
 
 class SkyPortal():
     def __init__(self, host=None, token=None):
@@ -120,7 +125,7 @@ class SkyPortal():
             print(f"Candidate {alert['object_id']} already exists.")
             return True
         
-        print(f"Failed to post candidate {alert['object_id']}: {response.text}")
+        print(f"Failed to post candidate {alert['object_id']}: {response}")
         return False
     
     def import_from_kowalski(self, alert):
@@ -133,7 +138,7 @@ class SkyPortal():
             print(f"Fetched object {alert['object_id']} from Kowalski.")
             return True
 
-        print(f"Failed to fetch object {alert['object_id']} from Kowalski: {response.text}")
+        print(f"Failed to fetch object {alert['object_id']} from Kowalski: {response}")
         return False
     
     def fetch_annotations(
@@ -150,7 +155,7 @@ class SkyPortal():
             print(f"Fetched annotations for {alert['object_id']}.")
             return response['data']
 
-        print(f"Failed to fetch annotations for {alert['object_id']}: {response.text}")
+        print(f"Failed to fetch annotations for {alert['object_id']}: {response}")
         return None
     
     def post_annotations(
@@ -191,7 +196,7 @@ class SkyPortal():
                 print(f"Annotations for {alert['object_id']} posted successfully.")
                 return True
 
-            print(f"Failed to post annotations for {alert['object_id']}: {response.text}")
+            print(f"Failed to post annotations for {alert['object_id']}: {response}")
             return False
         
         ep_annotation = ep_annotations[0]
@@ -241,7 +246,7 @@ class SkyPortal():
             print(f"Annotations for {alert['object_id']} updated successfully.")
             return True
 
-        print(f"Failed to update annotations for {alert['object_id']}: {response.text}")
+        print(f"Failed to update annotations for {alert['object_id']}: {response}")
         return False
 
 def process_xmatch(xmatch, c):
