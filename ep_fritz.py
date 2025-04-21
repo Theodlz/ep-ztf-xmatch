@@ -330,6 +330,7 @@ if __name__ == "__main__":
             try:
                 if process_xmatch(xmatch, conn):
                     set_xmatch_as_processed(xmatch["id"], conn)
+                    conn.commit()
                 time.sleep(5)
             except Exception as e:
                 print(f"Error processing xmatch {xmatch['object_id']}: {e}")
