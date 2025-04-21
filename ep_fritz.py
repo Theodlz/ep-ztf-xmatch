@@ -338,48 +338,46 @@ if __name__ == "__main__":
         print(f"Failed to initialize SkyPortal: {e}")
         exit(1)
 
-    # Only process xmatches that were created in the last 24 hours
-    created_after = datetime.now(timezone.utc) - timedelta(days=1)
+    while True:
+        with get_db_connection() as conn:
+            # Fetch events and xmatches from the database
 
-    with get_db_connection() as conn:
-        # Fetch events and xmatches from the database
+            # Only process xmatches that were created in the last 24 hours
+            created_after = datetime.now(timezone.utc) - timedelta(days=1)
 
-        # Only process xmatches that were created in the last 24 hours
-        created_after = datetime.now(timezone.utc) - timedelta(days=1)
+            # Only process candidates that are less than 2 months old
+            detected_after = float(Time(
+                datetime.now(timezone.utc) - timedelta(days=62)
+            ).jd)
 
-        # Only process candidates that are less than 2 months old
-        detected_after = float(Time(
-            datetime.now(timezone.utc) - timedelta(days=62)
-        ).jd)
+            xmatches, count = fetch_xmatches(
+                event_ids=None,
+                c=conn,
+                to_skyportal=False,
+                created_after=created_after,
+                detected_after=detected_after,
+                eventAgeDays=MAX_EVENT_AGE,
+            )
 
-        xmatches, count = fetch_xmatches(
-            event_ids=None,
-            c=conn,
-            to_skyportal=False,
-            created_after=created_after,
-            detected_after=detected_after,
-            eventAgeDays=MAX_EVENT_AGE,
-        )
+            print(f"Found {count} xmatches to process.")
 
-        print(f"Found {count} xmatches to process.")
+            # find the number of unique candid and unique objectid, just for logging
+            unique_candid = len(set([xmatch["candid"] for xmatch in xmatches]))
+            unique_objectid = len(set([xmatch["object_id"] for xmatch in xmatches]))
+            print(f"Found {unique_candid} unique candidates and {unique_objectid} unique object ids.")
 
-        # find the number of unique candid and unique objectid, just for logging
-        unique_candid = len(set([xmatch["candid"] for xmatch in xmatches]))
-        unique_objectid = len(set([xmatch["object_id"] for xmatch in xmatches]))
-        print(f"Found {unique_candid} unique candidates and {unique_objectid} unique object ids.")
-
-        for xmatch in xmatches:
-            try:
-                processed, skipped = process_xmatch(xmatch, conn)
-                if processed and skipped:
+            for xmatch in xmatches:
+                try:
+                    processed, skipped = process_xmatch(xmatch, conn)
+                    if processed and skipped:
+                        continue
+                    if processed:
+                        set_xmatch_as_processed(xmatch["id"], conn)
+                        conn.commit()
+                    time.sleep(5)
+                except Exception as e:
+                    print(f"Error processing xmatch {xmatch['object_id']}: {e}")
                     continue
-                if processed:
-                    set_xmatch_as_processed(xmatch["id"], conn)
-                    conn.commit()
-                time.sleep(5)
-            except Exception as e:
-                print(f"Error processing xmatch {xmatch['object_id']}: {e}")
-                continue
 
         print("All xmatches processed, sleeping for 1 minute.")
         time.sleep(60)

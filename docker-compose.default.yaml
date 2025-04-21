@@ -20,4 +20,4 @@ services:
       - FRITZ_TOKEN=<your-fritz-token>
       - FRITZ_FILTER_ID=<fritz-ztfep-filter-id>
       - FRITZ_IMPORT_GROUP_ID=<your-fritz-group-id>
-      - MAX_EVENT_AGE=1.0 # in days, used when pushing xmatches to Fritz
+      - MAX_EVENT_AGE=31.0 # in days, used when pushing xmatches to Fritz
