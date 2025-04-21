@@ -297,7 +297,7 @@ def process_xmatch(xmatch, c: sqlite3.Cursor):
     # but a higher JD that was already posted
     newer_xmatches_processed_count = c.execute(
         """
-        SELECT count(*) FROM xmatches
+        SELECT COUNT(*) FROM xmatches
         WHERE object_id = ?
         AND jd > ?
         AND to_skyportal = 1
