@@ -11,7 +11,7 @@ FRITZ_HOST = os.getenv("FRITZ_HOST")
 FRITZ_TOKEN = os.getenv("FRITZ_TOKEN")
 FRITZ_FILTER_ID = os.getenv("FRITZ_FILTER_ID")
 FRITZ_IMPORT_GROUP_ID = os.getenv("FRITZ_IMPORT_GROUP_ID")
-DEBUG = os.getenv("DEBUG", "False").lower() in ["true", "1", "yes"]
+MAX_EVENT_AGE = int(os.getenv("MAX_EVENT_AGE", 31.0))  # in days, default is 31 days
 if FRITZ_HOST is None:
     raise Exception("FRITZ_HOST environment variable is not set.")
 if FRITZ_TOKEN is None or FRITZ_TOKEN == "<your-fritz-token>":
@@ -30,6 +30,10 @@ try:
     FRITZ_IMPORT_GROUP_ID = int(FRITZ_IMPORT_GROUP_ID)
 except ValueError:
     raise Exception("FRITZ_IMPORT_GROUP_ID environment variable is not a valid integer.")
+try:
+    MAX_EVENT_AGE = float(MAX_EVENT_AGE)
+except ValueError:
+    raise Exception("MAX_EVENT_AGE environment variable is not a valid float.")
 
 
 class SkyPortal():
@@ -272,38 +276,37 @@ def process_xmatch(xmatch, c):
     )
     if count == 0:
         print(f"Failed to find event {xmatch['event_id']} for xmatch {xmatch['object_id']} (candid {xmatch['candid']}).")
-        return False
+        return False, False
     event = events[0]
 
     # if DEBUG, only look at events that are no older than 24 hours
-    if DEBUG:
-        obs_after = datetime.now(timezone.utc) - timedelta(hours=24)
-        event_time = datetime.strptime(event["obs_start"], "%Y-%m-%d %H:%M:%S").astimezone(timezone.utc)
-        if event_time < obs_after:
-            print(f"DEBUG - Event {event['name']} associated to xmatch {xmatch['object_id']} (candid {xmatch['candid']}) is older than 24 hours. Skipping.")
-            return True
+    obs_after = datetime.now(timezone.utc) - timedelta(hours=MAX_EVENT_AGE * 24)
+    event_time = datetime.strptime(event["obs_start"], "%Y-%m-%d %H:%M:%S").astimezone(timezone.utc)
+    if event_time < obs_after:
+        print(f"DEBUG - Event {event['name']} associated to xmatch {xmatch['object_id']} (candid {xmatch['candid']}) is older than 24 hours. Skipping.")
+        return True, True
 
     # 2. Post the candidate to SkyPortal
     posted, already_posted = sp.post_candidate(xmatch)
     if not posted:
         print(f"Failed to post candidate {xmatch['object_id']}.")
-        return False
+        return False, False
     
     # 3. Import the object's data (phot + cutouts) from Kowalski
     if not already_posted:
         imported = sp.import_from_kowalski(xmatch)
         if not imported:
             print(f"Failed to import object {xmatch['object_id']} from Kowalski.")
-            return False
+            return False, False
 
     # 4. Post the annotations
     posted = sp.post_annotations(xmatch, event)
     if not posted:
         print(f"Failed to post/update annotations for {xmatch['object_id']}.")
-        return False
+        return False, False
     
     print(f"Processed xmatch {xmatch['object_id']} successfully.")
-    return True
+    return True, False
 
 if __name__ == "__main__":
     # Check if the database is initialized
@@ -343,10 +346,12 @@ if __name__ == "__main__":
 
         for xmatch in xmatches:
             try:
-                if process_xmatch(xmatch, conn):
+                processed, skipped = process_xmatch(xmatch, conn)
+                if processed:
                     set_xmatch_as_processed(xmatch["id"], conn)
                     conn.commit()
-                time.sleep(5)
+                if not skipped:
+                    time.sleep(5)
             except Exception as e:
                 print(f"Error processing xmatch {xmatch['object_id']}: {e}")
                 continue
