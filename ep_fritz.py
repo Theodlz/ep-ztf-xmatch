@@ -10,12 +10,15 @@ import os
 FRITZ_HOST = os.getenv("FRITZ_HOST")
 FRITZ_TOKEN = os.getenv("FRITZ_TOKEN")
 FRITZ_FILTER_ID = os.getenv("FRITZ_FILTER_ID")
+FRITZ_IMPORT_GROUP_ID = os.getenv("FRITZ_IMPORT_GROUP_ID")
 if FRITZ_HOST is None:
     raise Exception("FRITZ_HOST environment variable is not set.")
 if FRITZ_TOKEN is None or FRITZ_TOKEN == "<your-fritz-token>":
     raise Exception("FRITZ_TOKEN environment variable is not set.")
 if FRITZ_FILTER_ID is None or FRITZ_FILTER_ID == "<fritz-ztfep-filter-id>":
     raise Exception("FRITZ_FILTER_ID environment variable is not set.")
+if FRITZ_IMPORT_GROUP_ID is None or FRITZ_IMPORT_GROUP_ID == "<your-fritz-group-id>":
+    raise Exception("FRITZ_IMPORT_GROUP_ID environment variable is not set.")
 
 try:
     FRITZ_FILTER_ID = int(FRITZ_FILTER_ID)
@@ -130,9 +133,14 @@ class SkyPortal():
     
     def import_from_kowalski(self, alert):
         # Fetch the object from Kowalski
+        data = {
+            'candid': alert['candid'],
+            'group_ids': [FRITZ_IMPORT_GROUP_ID],
+        }
         status_code, response = self.api(
             "POST",
-            f"alerts/{alert['object_id']}?candid={alert['candid']}",
+            f"alerts/{alert['object_id']}",
+            data=data,
         )
         if status_code == 200:
             print(f"Fetched object {alert['object_id']} from Kowalski.")
@@ -315,8 +323,8 @@ if __name__ == "__main__":
 
         for xmatch in xmatches:
             try:
-                process_xmatch(xmatch, conn)
-                set_xmatch_as_processed(xmatch["id"], conn)
+                if process_xmatch(xmatch, conn):
+                    set_xmatch_as_processed(xmatch["id"], conn)
                 time.sleep(5)
             except Exception as e:
                 print(f"Error processing xmatch {xmatch['object_id']}: {e}")

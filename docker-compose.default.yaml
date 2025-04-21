@@ -19,3 +19,4 @@ services:
       - FRITZ_HOST=https://fritz.science
       - FRITZ_TOKEN=<your-fritz-token>
       - FRITZ_FILTER_ID=<fritz-ztfep-filter-id>
+      - FRITZ_IMPORT_GROUP_ID=<your-fritz-group-id>
