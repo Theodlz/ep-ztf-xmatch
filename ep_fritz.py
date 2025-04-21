@@ -1,5 +1,6 @@
 from db import is_db_initialized, get_db_connection, fetch_events, fetch_xmatches, set_xmatch_as_processed
 from datetime import datetime, timezone, timedelta
+import sqlite3
 import time
 import urllib.parse
 import requests
@@ -266,7 +267,7 @@ class SkyPortal():
         print(f"Failed to update annotations for {alert['object_id']}: {response}")
         return False
 
-def process_xmatch(xmatch, c):
+def process_xmatch(xmatch, c: sqlite3.Cursor):
 
     # 1. Grab the event for that match
     events, count = fetch_events(
@@ -279,11 +280,11 @@ def process_xmatch(xmatch, c):
         return False, False
     event = events[0]
 
-    # if DEBUG, only look at events that are no older than 24 hours
+    # Check if the event is older than X days
     obs_after = datetime.now(timezone.utc) - timedelta(hours=MAX_EVENT_AGE * 24)
     event_time = datetime.strptime(event["obs_start"], "%Y-%m-%d %H:%M:%S").astimezone(timezone.utc)
     if event_time < obs_after:
-        print(f"DEBUG - Event {event['name']} associated to xmatch {xmatch['object_id']} (candid {xmatch['candid']}) is older than 24 hours. Skipping.")
+        print(f"Event {event['name']} associated to xmatch {xmatch['object_id']} (candid {xmatch['candid']}) is older than 24 hours. Skipping.")
         return True, True
 
     # 2. Post the candidate to SkyPortal
@@ -292,8 +293,22 @@ def process_xmatch(xmatch, c):
         print(f"Failed to post candidate {xmatch['object_id']}.")
         return False, False
     
+    # Check if we have a candidate with the same object_id 
+    # but a higher JD that was already posted
+    newer_xmatches_processed_count = c.execute(
+        """
+        SELECT count(*) FROM xmatches
+        WHERE object_id = ?
+        AND jd > ?
+        AND to_skyportal = 1
+        """,
+        (xmatch["object_id"], xmatch["jd"]),
+    ).fetchone()['COUNT(*)']
+    
     # 3. Import the object's data (phot + cutouts) from Kowalski
-    if not already_posted:
+    #    Only do so if the candid wasn't already posted to SkyPortal
+    #    or if no newer candidates with the same object_id were already posted
+    if not already_posted and newer_xmatches_processed_count == 0:
         imported = sp.import_from_kowalski(xmatch)
         if not imported:
             print(f"Failed to import object {xmatch['object_id']} from Kowalski.")
