@@ -11,7 +11,7 @@ FRITZ_HOST = os.getenv("FRITZ_HOST")
 FRITZ_TOKEN = os.getenv("FRITZ_TOKEN")
 FRITZ_FILTER_ID = os.getenv("FRITZ_FILTER_ID")
 FRITZ_IMPORT_GROUP_ID = os.getenv("FRITZ_IMPORT_GROUP_ID")
-MAX_EVENT_AGE = int(os.getenv("MAX_EVENT_AGE", 31.0))  # in days, default is 31 days
+MAX_EVENT_AGE = os.getenv("MAX_EVENT_AGE", 31.0)  # in days, default is 31 days
 if FRITZ_HOST is None:
     raise Exception("FRITZ_HOST environment variable is not set.")
 if FRITZ_TOKEN is None or FRITZ_TOKEN == "<your-fritz-token>":
