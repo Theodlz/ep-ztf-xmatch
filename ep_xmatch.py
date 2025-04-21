@@ -229,6 +229,8 @@ def cone_searches(events: list, k: Kowalski, archival: bool = False):
                 continue
             # to each matches, add a delta_t field
             # and the distance to the event position in arcsec
+            formatted_matches = []
+
             for match in matches:
                 if is_red_star(match):
                     print(f'Found a red star candidate {match["object_id"]}, skipping...')
@@ -256,8 +258,9 @@ def cone_searches(events: list, k: Kowalski, archival: bool = False):
                     match['archival'] = 1 # mark this as archival match
 
                 match['event_id'] = event_id # set the event_id for this match
+                formatted_matches.append(match)
 
-            results[event_name] = matches
+            results[event_name] = formatted_matches
 
     return results
 
@@ -287,17 +290,17 @@ def service(k: Kowalski) -> float:
         for event in new_events + [e for e in events_to_reprocess if e['query_status'] == 'reprocess']:
             try:
                 archival_results = cone_searches([event], k, archival=True)
-                print(f'Found {len(archival_results[event["name"]])} archival matches for event {event["name"]}')
-
                 xmatches = archival_results[event["name"]]
                 if len(xmatches) > 0:
+                    print(f'Found {len(archival_results[event["name"]])} archival matches for event {event["name"]}')
+                    remove_xmatches_by_event_id(event['id'], c, keep_archival=False)
                     insert_xmatches(xmatches, c)
             except Exception as e:
                 traceback.print_exc()
                 print(f'Failed to process archival event {event["name"]}: {e}')
                 update_event_status(event['id'], f'failed: {str(e)}', c)
 
-        conn.commit()
+            conn.commit()
 
         # for all events (new and those to reprocess), perform the non archival cone searches
         for event in new_events + events_to_reprocess:
@@ -306,11 +309,11 @@ def service(k: Kowalski) -> float:
                     update_event_status(event['id'], 'processing', c)
 
                 results = cone_searches([event], k)
-                print(f'Found {len(results[event["name"]])} matches for event {event["name"]}')
-
+                
                 xmatches = results[event["name"]]
                 if len(xmatches) > 0:
-                    remove_xmatches_by_event_id(event['id'], c)
+                    print(f'Found {len(xmatches)} matches for event {event["name"]}')
+                    remove_xmatches_by_event_id(event['id'], c, keep_archival=True)
                     insert_xmatches(xmatches, c)
 
                 update_event_status(event['id'], 'done', c)
@@ -318,7 +321,8 @@ def service(k: Kowalski) -> float:
                 traceback.print_exc()
                 print(f'Failed to process event {event["name"]}: {e}')
                 update_event_status(event['id'], f'failed: {str(e)}', c)
-        conn.commit()
+
+            conn.commit()
 
 if __name__ == "__main__":
     protocol = 'https'

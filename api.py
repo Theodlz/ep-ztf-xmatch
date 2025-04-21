@@ -147,11 +147,15 @@ def make_app():
             # 2. set the status of all the events to 'reprocess'
             with get_db_connection() as conn:
                 c = conn.cursor()
-                c.execute('DELETE FROM xmatches')
-                c.execute('UPDATE events SET query_status = "reprocess"')
+                result1 = c.execute('DELETE FROM xmatches')
+                result2 = c.execute('UPDATE events SET query_status = "reprocess"')
                 conn.commit()
             return {
                 'message': 'Reprocessing started',
+                'data': {
+                    'deleted_xmatches_status': str(result1),
+                    'updated_events_status': str(result2),
+                }
             }
         
     # add an endpoint where given an event's name and version (defaults to latest), we return the event's details

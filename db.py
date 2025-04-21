@@ -103,8 +103,11 @@ def update_event_status(event_id: int, status: str, c: sqlite3.Cursor) -> None:
     # when we update the query_status, we also want to update the updated_at timestamp, and the last_queried timestamp
     c.execute(f"UPDATE events SET query_status=?, updated_at=CURRENT_TIMESTAMP, last_queried=CURRENT_TIMESTAMP WHERE id=?", (status, event_id))
 
-def remove_xmatches_by_event_id(event_id: int, c: sqlite3.Cursor) -> None:
-    c.execute(f"DELETE FROM xmatches WHERE event_id=?", (event_id,))
+def remove_xmatches_by_event_id(event_id: int, c: sqlite3.Cursor, keep_archival = False) -> None:
+    if keep_archival:
+        c.execute(f"DELETE FROM xmatches WHERE event_id=? AND archival=0", (event_id,))
+    else:
+        c.execute(f"DELETE FROM xmatches WHERE event_id=?", (event_id,))
 
 def fetch_events(event_names: list, c: sqlite3.Cursor, **kwargs) -> Tuple[list, int]:
     query = 'SELECT * FROM events'
