@@ -336,6 +336,11 @@ if __name__ == "__main__":
 
         print(f"Found {count} xmatches to process.")
 
+        # find the number of unique candid and unique objectid, just for logging
+        unique_candid = len(set([xmatch["candid"] for xmatch in xmatches]))
+        unique_objectid = len(set([xmatch["object_id"] for xmatch in xmatches]))
+        print(f"Found {unique_candid} unique candidates and {unique_objectid} unique object ids.")
+
         for xmatch in xmatches:
             try:
                 if process_xmatch(xmatch, conn):
