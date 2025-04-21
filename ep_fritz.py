@@ -106,7 +106,6 @@ class SkyPortal():
         
         passed_at_jd = alert.get("jd")
         passed_at = Time(passed_at_jd, format="jd").isot
-        print(f"Passed at: {passed_at}")
         
         payload = {
             "id": alert["object_id"],
@@ -279,7 +278,7 @@ def process_xmatch(xmatch, c):
     # if DEBUG, only look at events that are no older than 24 hours
     if DEBUG:
         obs_after = datetime.now(timezone.utc) - timedelta(hours=24)
-        event_time = Time(event["obs_start"], format="isot").datetime
+        event_time = datetime.strptime(event["obs_start"], "%Y-%m-%d %H:%M:%S").astimezone(timezone.utc)
         if event_time < obs_after:
             print(f"DEBUG - Event {event['name']} associated to xmatch {xmatch['object_id']} (candid {xmatch['candid']}) is older than 24 hours. Skipping.")
             return True
@@ -346,4 +345,7 @@ if __name__ == "__main__":
             except Exception as e:
                 print(f"Error processing xmatch {xmatch['object_id']}: {e}")
                 continue
+
+        print("All xmatches processed, sleeping for 1 minute.")
+        time.sleep(60)
 
