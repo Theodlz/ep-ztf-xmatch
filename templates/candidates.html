@@ -36,7 +36,7 @@
                     {% if user_type in ['partner', 'caltech'] %}
                         <td style="text-align:center;padding:5px"><a href="https://fritz.science/alerts/ztf/{{xmatch['object_id']}}" target="_blank">{{xmatch['object_id']}}</a></td>
                     {% else %}
-                        <td style="text-align:center;padding:5px">{{xmatch['object_id']}}</td>
+                        <td style="text-align:center;padding:5px"><a href="https://alerce.online/object/{{xmatch['object_id']}}" target="_blank">{{xmatch['object_id']}}</a></td>
                     {% endif %}
                     <td style="text-align:center;padding:5px">
                         {{xmatch['event']['name']}}
