@@ -145,12 +145,12 @@ def cone_searches(events: list, k: Kowalski, archival: bool = False):
                                             },
                                             {
                                             "candidate.ssmagnr": {
-                                                "$lte": -20
+                                                "$lt": 0
                                             }
                                             },
                                             {
                                             "candidate.ssmagnr": {
-                                                "$gte": 20
+                                                "$gte": 21
                                             }
                                             }
                                         ]

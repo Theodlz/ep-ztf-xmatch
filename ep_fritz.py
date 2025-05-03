@@ -198,6 +198,13 @@ class SkyPortal():
                 'name': [event['name']],
                 'delta_t': [round(alert['delta_t'], 2)],
                 'distance_arcmin': [round(alert['distance_arcmin'], 2)],
+                'drb': [round(alert['drb'], 2)],
+                'age': [round(alert['age'], 2)],
+                'sgscore': [round(alert['sgscore'], 2) if alert['sgscore'] is not None else None],
+                'distpsnr': [round(alert['distpsnr'], 2) if alert['distpsnr'] is not None else None],
+                'ssdistnr': [round(alert['ssdistnr'], 2) if alert['ssdistnr'] is not None else None],
+                'ssmagnr': [round(alert['ssmagnr'], 2) if alert['ssmagnr'] is not None else None],
+                'ndethist': [alert['ndethist']],
             },
             "group_ids": [self.group_id],
         }
@@ -224,6 +231,13 @@ class SkyPortal():
                 "name": ep_annotation["data"]["name"][i],
                 "delta_t": ep_annotation["data"]["delta_t"][i],
                 "distance_arcmin": ep_annotation["data"]["distance_arcmin"][i],
+                "drb": ep_annotation["data"]["drb"][i],
+                "age": ep_annotation["data"]["age"][i],
+                "sgscore": ep_annotation["data"]["sgscore"][i] if ep_annotation["data"]["sgscore"][i] is not None else None,
+                "distpsnr": ep_annotation["data"]["distpsnr"][i] if ep_annotation["data"]["distpsnr"][i] is not None else None,
+                "ssdistnr": ep_annotation["data"]["ssdistnr"][i] if ep_annotation["data"]["ssdistnr"][i] is not None else None,
+                "ssmagnr": ep_annotation["data"]["ssmagnr"][i] if ep_annotation["data"]["ssmagnr"][i] is not None else None,
+                "ndethist": ep_annotation["data"]["ndethist"][i],
             }
             for i in range(len(ep_annotation["data"]["name"]))
         ]
@@ -235,6 +249,13 @@ class SkyPortal():
                 # if so, update it's data
                 event_annotated["delta_t"] = round(alert["delta_t"], 2)
                 event_annotated["distance_arcmin"] = round(alert["distance_arcmin"], 2)
+                event_annotated["drb"] = round(alert["drb"], 2)
+                event_annotated["age"] = round(alert["age"], 2)
+                event_annotated["sgscore"] = round(alert["sgscore"], 2) if alert['sgscore'] is not None else None
+                event_annotated["distpsnr"] = round(alert["distpsnr"], 2) if alert['distpsnr'] is not None else None
+                event_annotated["ssdistnr"] = round(alert["ssdistnr"], 2) if alert['ssdistnr'] is not None else None
+                event_annotated["ssmagnr"] = round(alert["ssmagnr"], 2) if alert['ssmagnr'] is not None else None
+                event_annotated["ndethist"] = alert['ndethist']
                 found = True
                 break
 
@@ -244,12 +265,26 @@ class SkyPortal():
                 "name": event["name"],
                 "delta_t": round(alert["delta_t"], 2),
                 "distance_arcmin": round(alert["distance_arcmin"], 2),
+                "drb": round(alert["drb"], 2),
+                "age": round(alert["age"], 2),
+                "sgscore": round(alert["sgscore"], 2) if alert['sgscore'] is not None else None,
+                "distpsnr": round(alert["distpsnr"], 2) if alert['distpsnr'] is not None else None,
+                "ssdistnr": round(alert["ssdistnr"], 2) if alert['ssdistnr'] is not None else None,
+                "ssmagnr": round(alert["ssmagnr"], 2) if alert['ssmagnr'] is not None else None,
+                "ndethist": alert['ndethist'],
             })
 
         # Update the payload with the new list of annotated events
         payload["data"]["name"] = [event_annotated["name"] for event_annotated in annoted_events]
         payload["data"]["delta_t"] = [event_annotated["delta_t"] for event_annotated in annoted_events]
         payload["data"]["distance_arcmin"] = [event_annotated["distance_arcmin"] for event_annotated in annoted_events]
+        payload["data"]["drb"] = [event_annotated["drb"] for event_annotated in annoted_events]
+        payload["data"]["age"] = [event_annotated["age"] for event_annotated in annoted_events]
+        payload["data"]["sgscore"] = [event_annotated["sgscore"] for event_annotated in annoted_events]
+        payload["data"]["distpsnr"] = [event_annotated["distpsnr"] for event_annotated in annoted_events]
+        payload["data"]["ssdistnr"] = [event_annotated["ssdistnr"] for event_annotated in annoted_events]
+        payload["data"]["ssmagnr"] = [event_annotated["ssmagnr"] for event_annotated in annoted_events]
+        payload["data"]["ndethist"] = [event_annotated["ndethist"] for event_annotated in annoted_events]
 
         # add the author_id of the existing annotation
         payload["author_id"] = ep_annotation["author_id"]
