@@ -96,8 +96,8 @@ def insert_xmatches(xmatches: list, c: sqlite3.Cursor) -> None:
         try:
             c.execute(query, tuple(xmatch.values()))
         except sqlite3.IntegrityError:
-            # update the xmatch with the new values
-            c.execute(f"UPDATE xmatches SET {','.join([f'{k}=?' for k in xmatch.keys()])} WHERE id=?", (*xmatch.values(), xmatch['id']))
+            # skip the xmatch if it already exists
+            continue
 
 def update_event_status(event_id: int, status: str, c: sqlite3.Cursor) -> None:
     # when we update the query_status, we also want to update the updated_at timestamp, and the last_queried timestamp
