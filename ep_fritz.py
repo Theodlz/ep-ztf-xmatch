@@ -191,6 +191,8 @@ class SkyPortal():
             annotation for annotation in annotations if annotation['origin'] == 'ZTF+EP'
         ]
 
+        ep_mjd = Time(event['obs_start'], format='iso').mjd
+
         payload = {
             "obj_id": alert["object_id"],
             "origin": f"ZTF+EP",
@@ -205,6 +207,7 @@ class SkyPortal():
                 'ssdistnr': [round(alert['ssdistnr'], 2) if alert['ssdistnr'] is not None else None],
                 'ssmagnr': [round(alert['ssmagnr'], 2) if alert['ssmagnr'] is not None else None],
                 'ndethist': [alert['ndethist']],
+                'ep_mjd': [ep_mjd],
             },
             "group_ids": [self.group_id],
         }
@@ -238,6 +241,7 @@ class SkyPortal():
                 "ssdistnr": ep_annotation["data"]["ssdistnr"][i] if ep_annotation["data"]["ssdistnr"][i] is not None else None,
                 "ssmagnr": ep_annotation["data"]["ssmagnr"][i] if ep_annotation["data"]["ssmagnr"][i] is not None else None,
                 "ndethist": ep_annotation["data"]["ndethist"][i],
+                "ep_mjd": ep_annotation["data"]["ep_mjd"][i],
             }
             for i in range(len(ep_annotation["data"]["name"]))
         ]
@@ -256,6 +260,7 @@ class SkyPortal():
                 event_annotated["ssdistnr"] = round(alert["ssdistnr"], 2) if alert['ssdistnr'] is not None else None
                 event_annotated["ssmagnr"] = round(alert["ssmagnr"], 2) if alert['ssmagnr'] is not None else None
                 event_annotated["ndethist"] = alert['ndethist']
+                event_annotated["ep_mjd"] = ep_mjd
                 found = True
                 break
 
@@ -272,6 +277,7 @@ class SkyPortal():
                 "ssdistnr": round(alert["ssdistnr"], 2) if alert['ssdistnr'] is not None else None,
                 "ssmagnr": round(alert["ssmagnr"], 2) if alert['ssmagnr'] is not None else None,
                 "ndethist": alert['ndethist'],
+                "ep_mjd": ep_mjd,
             })
 
         # Update the payload with the new list of annotated events
@@ -285,6 +291,7 @@ class SkyPortal():
         payload["data"]["ssdistnr"] = [event_annotated["ssdistnr"] for event_annotated in annoted_events]
         payload["data"]["ssmagnr"] = [event_annotated["ssmagnr"] for event_annotated in annoted_events]
         payload["data"]["ndethist"] = [event_annotated["ndethist"] for event_annotated in annoted_events]
+        payload["data"]["ep_mjd"] = [event_annotated["ep_mjd"] for event_annotated in annoted_events]
 
         # add the author_id of the existing annotation
         payload["author_id"] = ep_annotation["author_id"]
