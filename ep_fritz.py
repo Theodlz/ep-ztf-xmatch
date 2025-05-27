@@ -241,7 +241,7 @@ class SkyPortal():
                 "ssdistnr": ep_annotation["data"]["ssdistnr"][i] if ep_annotation["data"]["ssdistnr"][i] is not None else None,
                 "ssmagnr": ep_annotation["data"]["ssmagnr"][i] if ep_annotation["data"]["ssmagnr"][i] is not None else None,
                 "ndethist": ep_annotation["data"]["ndethist"][i],
-                "ep_mjd": ep_annotation["data"]["ep_mjd"][i],
+                "ep_mjd": ep_annotation["data"]["ep_mjd"][i] if ep_annotation["data"]["ep_mjd"][i] is not None else None,
             }
             for i in range(len(ep_annotation["data"]["name"]))
         ]
