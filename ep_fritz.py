@@ -228,22 +228,23 @@ class SkyPortal():
             return False
         
         ep_annotation = ep_annotations[0]
+        total = len(ep_annotation["data"]["name"])
         # from the existing annotation, recreate the list of annotated events:
         annoted_events = [
             {
-                "name": ep_annotation["data"]["name"][i],
-                "delta_t": ep_annotation["data"]["delta_t"][i],
-                "distance_arcmin": ep_annotation["data"]["distance_arcmin"][i],
-                "drb": ep_annotation["data"]["drb"][i],
-                "age": ep_annotation["data"]["age"][i],
-                "sgscore": ep_annotation["data"]["sgscore"][i] if ep_annotation["data"]["sgscore"][i] is not None else None,
-                "distpsnr": ep_annotation["data"]["distpsnr"][i] if ep_annotation["data"]["distpsnr"][i] is not None else None,
-                "ssdistnr": ep_annotation["data"]["ssdistnr"][i] if ep_annotation["data"]["ssdistnr"][i] is not None else None,
-                "ssmagnr": ep_annotation["data"]["ssmagnr"][i] if ep_annotation["data"]["ssmagnr"][i] is not None else None,
-                "ndethist": ep_annotation["data"]["ndethist"][i],
-                "ep_mjd": ep_annotation["data"]["ep_mjd"][i] if ep_annotation["data"]["ep_mjd"][i] is not None else None,
+                "name": ep_annotation["data"].get("name", [None] * total)[i],
+                "delta_t": ep_annotation["data"].get("delta_t", [None] * total)[i],
+                "distance_arcmin": ep_annotation["data"].get("distance_arcmin", [None] * total)[i],
+                "drb": ep_annotation["data"].get("drb", [None] * total)[i],
+                "age": ep_annotation["data"].get("age", [None] * total)[i],
+                "sgscore": ep_annotation["data"].get("sgscore", [None] * total)[i],
+                "distpsnr": ep_annotation["data"].get("distpsnr", [None] * total)[i],
+                "ssdistnr": ep_annotation["data"].get("ssdistnr", [None] * total)[i],
+                "ssmagnr": ep_annotation["data"].get("ssmagnr", [None] * total)[i],
+                "ndethist": ep_annotation["data"].get("ndethist", [None] * total)[i],
+                "ep_mjd": ep_annotation["data"].get("ep_mjd", [None] * total)[i],
             }
-            for i in range(len(ep_annotation["data"]["name"]))
+            for i in range(total)
         ]
 
         # Check if the event of the current candidate has already been annotated already
