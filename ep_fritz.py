@@ -13,6 +13,7 @@ FRITZ_TOKEN = os.getenv("FRITZ_TOKEN")
 FRITZ_FILTER_ID = os.getenv("FRITZ_FILTER_ID")
 FRITZ_IMPORT_GROUP_ID = os.getenv("FRITZ_IMPORT_GROUP_ID")
 MAX_EVENT_AGE = os.getenv("MAX_EVENT_AGE", 31.0)  # in days, default is 31 days
+MAX_CREATED_AFTER = os.getenv("MAX_CREATED_AFTER", 1.0)  # in days, default is 1 day
 if FRITZ_HOST is None:
     raise Exception("FRITZ_HOST environment variable is not set.")
 if FRITZ_TOKEN is None or FRITZ_TOKEN == "<your-fritz-token>":
@@ -327,7 +328,7 @@ def process_xmatch(xmatch, c: sqlite3.Cursor):
     obs_after = datetime.now(timezone.utc) - timedelta(hours=MAX_EVENT_AGE * 24)
     event_time = datetime.strptime(event["obs_start"], "%Y-%m-%d %H:%M:%S").astimezone(timezone.utc)
     if event_time < obs_after:
-        print(f"Event {event['name']} associated to xmatch {xmatch['object_id']} (candid {xmatch['candid']}) is older than 24 hours. Skipping.")
+        print(f"Event {event['name']} associated to xmatch {xmatch['object_id']} (candid {xmatch['candid']}) is older than {MAX_EVENT_AGE} days. Skipping.")
         return True, True
 
     # 2. Post the candidate to SkyPortal
@@ -385,8 +386,8 @@ if __name__ == "__main__":
         with get_db_connection() as conn:
             # Fetch events and xmatches from the database
 
-            # Only process xmatches that were created in the last 24 hours
-            created_after = datetime.now(timezone.utc) - timedelta(days=1)
+            # Only process xmatches that were created in the last N hours (MAX_CREATED_AFTER)
+            created_after = datetime.now(timezone.utc) - timedelta(days=MAX_CREATED_AFTER)
 
             # Only process candidates that are less than 2 months old
             detected_after = float(Time(

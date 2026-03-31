@@ -1,4 +1,4 @@
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 ENV PATH="/root/.local/bin/:$PATH"
 
@@ -6,14 +6,13 @@ WORKDIR /app
 
 SHELL ["/bin/bash", "-c"]
 
-RUN apt-get update && apt-get install -y curl wget && \
+RUN apt-get update && apt-get install -y curl wget nano && \
     curl https://sh.rustup.rs -sSf | sh -s -- -y && \
     apt-get autoremove && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 ADD https://astral.sh/uv/install.sh /uv-installer.sh
 
-RUN sh /uv-installer.sh && rm /uv-installer.sh && \
-    uv venv --python=python3.12
+RUN sh /uv-installer.sh && rm /uv-installer.sh
 
 COPY ["api.py", \
         "db.py", \
