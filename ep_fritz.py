@@ -36,6 +36,10 @@ try:
     MAX_EVENT_AGE = float(MAX_EVENT_AGE)
 except ValueError:
     raise Exception("MAX_EVENT_AGE environment variable is not a valid float.")
+try:
+    MAX_CREATED_AFTER = float(MAX_CREATED_AFTER)
+except ValueError:
+    raise Exception("MAX_CREATED_AFTER environment variable is not a valid float.")
 
 
 class SkyPortal():
