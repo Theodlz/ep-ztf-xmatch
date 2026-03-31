@@ -26,8 +26,7 @@ COPY ["api.py", \
 
 COPY templates /app/templates
 
-RUN source .venv/bin/activate && \
-    uv sync && \
+RUN uv sync && \
     rm -rf $HOME/.cache/uv && \
     mkdir log && mkdir log/sv_child && mkdir run
 
