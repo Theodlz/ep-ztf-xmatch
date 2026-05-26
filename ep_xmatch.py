@@ -1,3 +1,4 @@
+import json
 import os
 import time
 from astropy.time import Time
@@ -303,6 +304,10 @@ def service(k: Kowalski) -> float:
                             else:
                                 print(f'Failed to insert archival xmatch {xmatch["candid"]} for event {event["name"]}: {e}')
                                 traceback.print_exc()
+            except json.JSONDecodeError as e:
+                traceback.print_exc()
+                print(f'Transient Kowalski response error for archival event {event["name"]}, will retry: {e}')
+                update_event_status(event['id'], 'pending', c)
             except Exception as e:
                 traceback.print_exc()
                 print(f'Failed to process archival event {event["name"]}: {e}')
@@ -333,6 +338,10 @@ def service(k: Kowalski) -> float:
                                 traceback.print_exc()
 
                 update_event_status(event['id'], 'done', c)
+            except json.JSONDecodeError as e:
+                traceback.print_exc()
+                print(f'Transient Kowalski response error for event {event["name"]}, will retry: {e}')
+                update_event_status(event['id'], 'pending', c)
             except Exception as e:
                 traceback.print_exc()
                 print(f'Failed to process event {event["name"]}: {e}')
