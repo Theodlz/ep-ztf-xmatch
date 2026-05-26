@@ -1,10 +1,21 @@
 import json
 import os
+import signal
+import sys
 import time
 from astropy.time import Time
 import traceback
 import numpy as np
 import requests
+
+_shutdown = False
+
+def _handle_sigterm(signum, frame):
+    global _shutdown
+    print('SIGTERM received, will stop after current job completes...')
+    _shutdown = True
+
+signal.signal(signal.SIGTERM, _handle_sigterm)
 
 from penquins import Kowalski
 from db import is_db_initialized, get_db_connection, fetch_events, update_event_status, insert_xmatches
@@ -379,12 +390,16 @@ if __name__ == "__main__":
         time.sleep(15)
 
     print('Starting service...')
-    while True:
+    while not _shutdown:
         try:
             service(k)
         except Exception as e:
             traceback.print_exc()
             print(f'Failed to run service: {e}')
+        if _shutdown:
+            break
         time.sleep(5)
         print('Service loop')
+    print('Shutting down gracefully.')
+    sys.exit(0)
 

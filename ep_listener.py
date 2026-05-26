@@ -1,7 +1,18 @@
 import os
+import signal
+import sys
 import time
 import traceback
 import requests
+
+_shutdown = False
+
+def _handle_sigterm(signum, frame):
+    global _shutdown
+    print('SIGTERM received, will stop after current job completes...')
+    _shutdown = True
+
+signal.signal(signal.SIGTERM, _handle_sigterm)
 
 from penquins import Kowalski
 from db import is_db_initialized, get_db_connection, insert_events, ALLOWED_EVENT_COLUMNS
@@ -98,12 +109,16 @@ if __name__ == "__main__":
     last_event_fetch = None
 
     print('Starting service...')
-    while True:
+    while not _shutdown:
         try:
             last_event_fetch = service(k, last_event_fetch)
         except Exception as e:
             traceback.print_exc()
             print(f'Failed to run service: {e}')
+        if _shutdown:
+            break
         time.sleep(5)
         print('Service loop')
+    print('Shutting down gracefully.')
+    sys.exit(0)
 

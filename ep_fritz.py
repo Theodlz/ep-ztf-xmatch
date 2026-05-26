@@ -1,11 +1,22 @@
 from db import is_db_initialized, get_db_connection, fetch_events, fetch_xmatches, set_xmatch_as_processed
 from datetime import datetime, timezone, timedelta
+import signal
 import sqlite3
+import sys
 import time
 import urllib.parse
 import requests
 from astropy.time import Time
 import os
+
+_shutdown = False
+
+def _handle_sigterm(signum, frame):
+    global _shutdown
+    print('SIGTERM received, will stop after current job completes...')
+    _shutdown = True
+
+signal.signal(signal.SIGTERM, _handle_sigterm)
 
 
 FRITZ_HOST = os.getenv("FRITZ_HOST")
@@ -386,7 +397,7 @@ if __name__ == "__main__":
         print(f"Failed to initialize SkyPortal: {e}")
         exit(1)
 
-    while True:
+    while not _shutdown:
         with get_db_connection() as conn:
             # Fetch events and xmatches from the database
 
@@ -415,6 +426,8 @@ if __name__ == "__main__":
             print(f"Found {unique_candid} unique candidates and {unique_objectid} unique object ids.")
 
             for xmatch in xmatches:
+                if _shutdown:
+                    break
                 try:
                     processed, skipped = process_xmatch(xmatch, conn)
                     if processed and skipped:
@@ -427,6 +440,10 @@ if __name__ == "__main__":
                     print(f"Error processing xmatch {xmatch['object_id']}: {e}")
                     continue
 
+        if _shutdown:
+            break
         print("All xmatches processed, sleeping for 1 minute.")
         time.sleep(60)
+    print('Shutting down gracefully.')
+    sys.exit(0)
 
