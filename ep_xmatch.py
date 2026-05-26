@@ -208,7 +208,16 @@ def cone_searches(events: list, k: Kowalski, archival: bool = False):
         )
 
     # now we submit the queries in parallel, with up to 8 threads
-    responses = k.query(queries=queries, use_batch_query=True, max_n_threads=4)
+    try:
+        responses = k.query(queries=queries, use_batch_query=True, max_n_threads=4)
+    except json.JSONDecodeError:
+        event_summaries = [
+            f'  {e["name"]} | ra={e["ra"]:.5f}; dec={e["dec"]:.5f}; pos_err={e["pos_err"]}; obs_start={e["obs_start"]}; archival={archival}; dt={jd_end - jd_start:.2f} days; radius={radius * RADIUS_MULTIPLIER:.2f}"'
+            for e in events
+        ]
+        print('Kowalski returned malformed JSON for queries:')
+        print('\n'.join(event_summaries))
+        raise
 
     results = {
         event["name"]: [] for event in events
