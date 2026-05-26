@@ -4,6 +4,7 @@ import time
 from astropy.time import Time
 import traceback
 import numpy as np
+import requests
 
 from penquins import Kowalski
 from db import is_db_initialized, get_db_connection, fetch_events, update_event_status, insert_xmatches
@@ -210,12 +211,12 @@ def cone_searches(events: list, k: Kowalski, archival: bool = False):
     # now we submit the queries in parallel, with up to 8 threads
     try:
         responses = k.query(queries=queries, use_batch_query=True, max_n_threads=4)
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, requests.exceptions.ConnectionError):
         event_summaries = [
             f'  {e["name"]} | ra={e["ra"]:.5f}; dec={e["dec"]:.5f}; pos_err={e["pos_err"]}; obs_start={e["obs_start"]}; archival={archival}; dt={jd_end - jd_start:.2f} days; radius={radius * RADIUS_MULTIPLIER:.2f}"'
             for e in events
         ]
-        print('Kowalski returned malformed JSON for queries:')
+        print('Kowalski transient error for queries:')
         print('\n'.join(event_summaries))
         raise
 
@@ -313,9 +314,9 @@ def service(k: Kowalski) -> float:
                             else:
                                 print(f'Failed to insert archival xmatch {xmatch["candid"]} for event {event["name"]}: {e}')
                                 traceback.print_exc()
-            except json.JSONDecodeError as e:
+            except (json.JSONDecodeError, requests.exceptions.ConnectionError) as e:
                 traceback.print_exc()
-                print(f'Transient Kowalski response error for archival event {event["name"]}, will retry: {e}')
+                print(f'Transient Kowalski error for archival event {event["name"]}, will retry: {e}')
                 update_event_status(event['id'], 'pending', c)
             except Exception as e:
                 traceback.print_exc()
@@ -347,9 +348,9 @@ def service(k: Kowalski) -> float:
                                 traceback.print_exc()
 
                 update_event_status(event['id'], 'done', c)
-            except json.JSONDecodeError as e:
+            except (json.JSONDecodeError, requests.exceptions.ConnectionError) as e:
                 traceback.print_exc()
-                print(f'Transient Kowalski response error for event {event["name"]}, will retry: {e}')
+                print(f'Transient Kowalski error for event {event["name"]}, will retry: {e}')
                 update_event_status(event['id'], 'pending', c)
             except Exception as e:
                 traceback.print_exc()
